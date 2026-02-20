@@ -1,0 +1,53 @@
+{
+  "name": "@apify/apify-openclaw-integration",
+  "version": "0.1.0",
+  "description": "Social media scraping via Apify (Instagram, TikTok, YouTube, LinkedIn) for OpenClaw",
+  "type": "module",
+  "license": "MIT",
+  "author": "Apify Technologies s.r.o.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apify/apify-openclaw-integration.git"
+  },
+  "bugs": {
+    "url": "https://github.com/apify/apify-openclaw-integration/issues"
+  },
+  "homepage": "https://github.com/apify/apify-openclaw-integration#readme",
+  "keywords": [
+    "openclaw",
+    "apify",
+    "social-media",
+    "scraper",
+    "instagram",
+    "tiktok",
+    "youtube",
+    "linkedin"
+  ],
+  "files": [
+    "src/",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.1.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "openclaw": "^2026.2.18",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}
