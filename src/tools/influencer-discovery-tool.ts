@@ -21,9 +21,9 @@ type Source = (typeof SOURCES)[number];
 
 // Use profile scrapers and hashtag scrapers for discovery
 const ACTOR_IDS: Record<Source, string> = {
-  instagram: "apify/instagram-profile-scraper",
-  youtube: "streamers/youtube-channel-scraper",
-  tiktok: "clockworks/tiktok-scraper",
+  instagram: "apify~instagram-profile-scraper",
+  youtube: "streamers~youtube-channel-scraper",
+  tiktok: "clockworks~tiktok-scraper",
 };
 
 const RequestSchema = Type.Object({

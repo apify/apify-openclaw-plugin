@@ -20,11 +20,11 @@ const SOURCES = ["instagram_posts", "instagram_reels", "facebook_posts", "youtub
 type Source = (typeof SOURCES)[number];
 
 const ACTOR_IDS: Record<Source, string> = {
-  instagram_posts: "apify/instagram-post-scraper",
-  instagram_reels: "apify/instagram-reel-scraper",
-  facebook_posts: "apify/facebook-posts-scraper",
-  youtube: "streamers/youtube-scraper",
-  tiktok: "clockworks/tiktok-scraper",
+  instagram_posts: "apify~instagram-post-scraper",
+  instagram_reels: "apify~instagram-reel-scraper",
+  facebook_posts: "apify~facebook-posts-scraper",
+  youtube: "streamers~youtube-scraper",
+  tiktok: "clockworks~tiktok-scraper",
 };
 
 const RequestSchema = Type.Object({

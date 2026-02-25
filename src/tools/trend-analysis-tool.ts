@@ -20,10 +20,10 @@ const SOURCES = ["google_trends", "instagram_hashtags", "tiktok_hashtags", "tikt
 type Source = (typeof SOURCES)[number];
 
 const ACTOR_IDS: Record<Source, string> = {
-  google_trends: "apify/google-trends-scraper",
-  instagram_hashtags: "apify/instagram-hashtag-scraper",
-  tiktok_hashtags: "clockworks/tiktok-hashtag-scraper",
-  tiktok_trends: "clockworks/tiktok-trends-scraper",
+  google_trends: "apify~google-trends-scraper",
+  instagram_hashtags: "apify~instagram-hashtag-scraper",
+  tiktok_hashtags: "clockworks~tiktok-hashtag-scraper",
+  tiktok_trends: "clockworks~tiktok-trends-scraper",
 };
 
 const RequestSchema = Type.Object({

@@ -20,12 +20,12 @@ const SOURCES = ["google_maps", "booking", "tripadvisor", "facebook_reviews", "y
 type Source = (typeof SOURCES)[number];
 
 const ACTOR_IDS: Record<Source, string> = {
-  google_maps: "compass/crawler-google-places",
-  booking: "voyager/booking-scraper",
-  tripadvisor: "maxcopell/tripadvisor-reviews",
-  facebook_reviews: "apify/facebook-reviews-scraper",
-  youtube_comments: "streamers/youtube-comments-scraper",
-  tiktok_comments: "clockworks/tiktok-comments-scraper",
+  google_maps: "compass~crawler-google-places",
+  booking: "voyager~booking-scraper",
+  tripadvisor: "maxcopell~tripadvisor-reviews",
+  facebook_reviews: "apify~facebook-reviews-scraper",
+  youtube_comments: "streamers~youtube-comments-scraper",
+  tiktok_comments: "clockworks~tiktok-comments-scraper",
 };
 
 const RequestSchema = Type.Object({

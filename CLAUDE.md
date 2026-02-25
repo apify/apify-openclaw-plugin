@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that provides social media scraping via Apify's API. It registers the `social_platforms` agent tool supporting Instagram, TikTok, YouTube, and LinkedIn.
+This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that provides web scraping and data extraction via Apify's API. It registers **10 agent tools** covering social media, market research, lead generation, e-commerce, and more.
 
 - **Upstream repo:** https://github.com/openclaw/openclaw
 - **Plugin docs:** https://docs.openclaw.ai/plugins/community
@@ -14,21 +14,80 @@ This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that 
 
 ```
 src/
-  index.ts                    # Plugin entry point (register tool with OpenClaw)
-  social-platforms-tool.ts    # Core tool: schema, handlers, formatters, Apify API
+  index.ts                    # Plugin entry point — registers all 10 tools + CLI
+  apify-client.ts             # Shared HTTP client, startApifyActorRun, config helpers
+  tool-helpers.ts             # runTwoPhaseStart + runTwoPhaseCollect (used by domain tools)
+  cli.ts                      # openclaw apify setup|status|test commands
   util.ts                     # Inlined utilities (not exported by openclaw/plugin-sdk)
+  tools/
+    market-research-tool.ts
+    competitor-intelligence-tool.ts
+    trend-analysis-tool.ts
+    lead-generation-tool.ts
+    ecommerce-tool.ts
+    content-analytics-tool.ts
+    audience-analysis-tool.ts
+    influencer-discovery-tool.ts
+    brand-reputation-tool.ts
+    apify-scraper-tool.ts     # Universal scraper — discover + start + collect
 test/
-  social-platforms.test.ts    # Vitest unit tests (mocked fetch)
+  helpers.ts                  # makeMockFetch, standardRunResponses, TEST_CONFIG
+  *.test.ts                   # 10 test files (one per tool)
+skills/
+  <name>/SKILL.md             # 10 agent training docs for OpenClaw's skill system
 openclaw.plugin.json          # Plugin manifest (configSchema + uiHints) — REQUIRED
-package.json                  # npm package config + openclaw.extensions entry
+package.json                  # npm package config
 ```
+
+## Registered Tools
+
+| Tool | Sources |
+|------|---------|
+| `market_research` | Google Maps, Booking, TripAdvisor |
+| `competitor_intelligence` | Google Maps, Google Maps Reviews, Google Search |
+| `trend_analysis` | Google Trends, Instagram hashtags, TikTok hashtags/trends |
+| `lead_generation` | Google Maps, Google Maps Email, Google Search |
+| `ecommerce` | Products, reviews, sellers via `apify~e-commerce-scraping-tool` |
+| `content_analytics` | Instagram posts/reels, Facebook posts, YouTube, TikTok |
+| `audience_analysis` | Instagram profile, Facebook followers, YouTube channel, TikTok profile |
+| `influencer_discovery` | Instagram, YouTube, TikTok |
+| `brand_reputation` | Google Maps, Booking, TripAdvisor, Facebook reviews, YouTube/TikTok comments |
+| `apify_scraper` | Universal — discover (store search + schema) + start + collect |
 
 ## Key Architecture Decisions
 
-- **Two-phase async pattern:** `start` fires Apify Actor runs concurrently and returns immediately with run IDs. `collect` fetches results for completed runs. This lets the AI agent do other work while scraping runs.
-- **Inlined utilities (`util.ts`):** `ToolInputError`, cache helpers, HTTP helpers, and `wrapExternalContent` are NOT exported from `openclaw/plugin-sdk`. We carry local copies to keep the plugin self-contained. If the SDK starts exporting these, migrate to SDK imports.
+- **Two-phase async pattern:** `start` fires Apify actor runs concurrently and returns run IDs immediately. `collect` fetches results for completed runs. This lets the agent do other work while scraping runs.
+- **Shared client (`apify-client.ts`):** All tools use `startApifyActorRun`, `getApifyRunStatus`, `getApifyDatasetItems`. Domain tools go through `runTwoPhaseStart`/`runTwoPhaseCollect` from `tool-helpers.ts`. `apify_scraper` orchestrates its own collect loop.
+- **Inlined utilities (`util.ts`):** `ToolInputError`, cache helpers, HTTP helpers, and `wrapExternalContent` are NOT exported from `openclaw/plugin-sdk`. We carry local copies to keep the plugin self-contained.
 - **No build step:** OpenClaw loads plugins via `jiti` (TypeScript JIT). We ship `.ts` source directly. No compilation needed.
-- **Plugin id:** `apify-openclaw-integration` — must match the unscoped npm package name (openclaw derives it via `unscopedPackageName`).
+- **Plugin id:** `apify-openclaw-integration` — must match the unscoped npm package name.
+- **`isToolEnabled(config, toolName)`:** Checks the `enabledTools[]` array in plugin config. Empty array = all tools enabled.
+
+## Apify Actor IDs
+
+**Format: `username~actor-name`** (tilde separator, not slash).
+
+The Apify API accepts both `username/actor-name` and `username~actor-name`, but the `~` format avoids URL path ambiguity. All hardcoded actor IDs in `ACTOR_IDS` maps use `~`. The `discover` action in `apify_scraper` builds slugs as `${username}~${name}` and its tip tells the agent to use `~` format.
+
+`startApifyActorRun` in `apify-client.ts` uses `encodeURIComponent(actorId)` in the URL path as a safety guard — `~` is unreserved so it won't be percent-encoded, but the guard handles any edge-case IDs.
+
+**Why this matters:** Using `username/actor-name` unencoded in a URL path causes 404s because the server interprets the `/` as a path separator (e.g. `/v2/acts/apify/google-search-scraper/runs` → no matching route). Always encode or use `~`.
+
+## Skills (SKILL.md files)
+
+The `skills/<name>/SKILL.md` files are agent training documents loaded by OpenClaw's skill system (`"skills": ["./skills"]` in `openclaw.plugin.json`). They are **custom-written for this plugin** — not from any Apify official repository. They teach the agent when and how to use each tool, with worked examples.
+
+These are separate from the Claude Code skills (the `apify-content-analytics`, `apify-lead-generation` etc. in the Claude skills menu) — those are Apify's official Claude Code integration skills.
+
+## Setup Wizard — Direct Config Write
+
+`openclaw apify setup` (in `src/cli.ts`) now writes the config directly to the OpenClaw config file instead of printing manual instructions.
+
+It uses:
+- `api.runtime.config.loadConfig()` → returns current `OpenClawConfig`
+- `api.runtime.config.writeConfigFile(cfg)` → writes it back to disk
+
+The wizard merges safely: preserves existing `cacheTtlMinutes`/`maxResults`, adds to `tools.alsoAllow` without duplicates, uses `group:plugins` when all tools are selected. If the config API is unavailable (older OpenClaw), it falls back to printing the manual config block.
 
 ## Build, Test, and Development
 
@@ -41,10 +100,11 @@ package.json                  # npm package config + openclaw.extensions entry
 ## Coding Style
 
 - TypeScript (ESM). Prefer strict typing; avoid `any`.
-- Tool names: `snake_case` (e.g., `social_platforms`).
+- Tool names: `snake_case` (e.g., `market_research`).
 - Plugin id / config keys: `kebab-case` (e.g., `apify-openclaw-integration`).
 - Keep files concise. Add comments for non-obvious logic.
 - Tool schema guardrails: avoid `Type.Union` in tool input schemas. Use `stringEnum` for string enums, `Type.Optional(...)` instead of nullable types. Keep top-level schema as `type: "object"` with `properties`. Avoid raw `format` property names (some validators treat it as reserved).
+- TypeScript gotcha: nested optional chaining on `Record<string, unknown>` needs explicit cast — `(item.foo as Record<string, unknown>)?.bar`.
 
 ---
 
@@ -108,10 +168,12 @@ The `register(api)` function receives an `OpenClawPluginApi` object:
 - `api.pluginConfig` — the validated per-plugin config from `plugins.entries.<id>.config`
 - `api.logger` — scoped logger
 - `api.runtime` — rich runtime (channels, media, TTS, system, config, logging, state)
+- `api.runtime.config.loadConfig()` — load fresh `OpenClawConfig` from disk
+- `api.runtime.config.writeConfigFile(cfg)` — write config back to disk (used by setup wizard)
 - `api.registerTool(tool, opts?)` — register an agent tool
 - `api.registerHook(...)`, `api.registerGatewayMethod(...)`, `api.registerCli(...)`, etc.
 
-Our plugin calls `api.registerTool(tool)` with the `social_platforms` tool object returned by `createSocialPlatformsTool()`.
+Our plugin calls `api.registerTool(tool)` for each of the 10 tools and `api.registerCli(...)` for the `apify` CLI subcommand.
 
 #### 6. Tool Resolution at Runtime
 
@@ -128,9 +190,9 @@ A tool is an object with:
 
 ```ts
 {
-  name: string;              // "social_platforms"
-  label?: string;            // "Social Platforms" (display name)
-  description: string;       // Shown to the LLM
+  name: string;              // e.g. "market_research"
+  label?: string;            // display name
+  description: string;       // shown to the LLM
   parameters: object;        // JSON Schema or TypeBox schema
   execute(id: string, params: Record<string, unknown>): Promise<AgentToolResult>;
 }
@@ -141,7 +203,7 @@ A tool is an object with:
 ```ts
 {
   content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>;
-  details?: unknown;  // Structured data (accessible from hooks/tests)
+  details?: unknown;  // structured data (accessible from hooks/tests)
 }
 ```
 
@@ -174,13 +236,13 @@ The SDK re-exports from core. Key exports used by this plugin:
 
 ### Tool Allowlisting
 
-Users control which tools are available to the agent. For this plugin's tool:
+Users control which tools are available to the agent:
 
 ```json5
 {
   tools: {
     alsoAllow: [
-      "social_platforms",           // by tool name
+      "market_research",            // by individual tool name
       "apify-openclaw-integration", // by plugin id (enables all tools from plugin)
       "group:plugins",              // enables ALL plugin tools
     ],
@@ -195,51 +257,42 @@ Allowlists can also be set per-agent (`agents.list[].tools.allow/alsoAllow`) or 
 ```json5
 {
   plugins: {
-    enabled: true,                    // master toggle (default: true)
+    enabled: true,
     entries: {
       "apify-openclaw-integration": {
-        enabled: true,                // per-plugin toggle
+        enabled: true,
         config: {
           apiKey: "apify_api_...",     // or use APIFY_API_KEY env var
           baseUrl: "https://api.apify.com",
           cacheTtlMinutes: 15,
           maxResults: 20,
-          allowedPlatforms: ["instagram", "tiktok", "youtube", "linkedin"],
+          enabledTools: [],           // empty = all 10 tools enabled; list names to restrict
         },
       },
     },
   },
   tools: {
-    alsoAllow: ["social_platforms"],
+    alsoAllow: ["group:plugins"],   // or list individual tool names
   },
 }
 ```
 
-Config changes require a gateway restart.
+Config changes require a gateway restart (`openclaw restart`).
 
 ---
 
 ## External Content Security Model
 
-All data scraped from social media platforms is **untrusted external content** that could contain prompt injection attacks. OpenClaw's security model requires wrapping such content.
+All data scraped from external sources is **untrusted external content** that could contain prompt injection attacks. OpenClaw's security model requires wrapping such content.
 
 ### How wrapping works
 
-The core `wrapExternalContent(content, options)` function (which we inline in `util.ts`):
+The core `wrapExternalContent(content, options)` function (inlined in `util.ts`):
 
 1. **Sanitizes markers** — replaces any occurrence of `<<<EXTERNAL_UNTRUSTED_CONTENT>>>` or `<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>` within the content with `[[MARKER_SANITIZED]]` (including Unicode homoglyph variants)
 2. **Wraps with boundary markers** — the content is placed between start/end markers with source metadata
 
-Our plugin wraps all scraped results with:
-```
-<<<EXTERNAL_UNTRUSTED_CONTENT>>>
-Source: social_platforms
----
-[scraped content here]
-<<<END_EXTERNAL_UNTRUSTED_CONTENT>>>
-```
-
-And returns `externalContent: { untrusted: true, source: "social_platforms", wrapped: true }` in the tool result metadata.
+All scraped results are wrapped with the source tool name (e.g. `source: "market_research"`) and `externalContent: { untrusted: true, source: "<tool>", wrapped: true }` in the tool result metadata.
 
 ---
 
@@ -257,9 +310,10 @@ And returns `externalContent: { untrusted: true, source: "social_platforms", wra
 
 - **Framework:** Vitest
 - Tests mock `global.fetch` to simulate Apify API responses (start runs, check status, get dataset items).
-- The `withFetchPreconnect` helper patches mock fetch with Node 22's `fetch.preconnect` signature.
+- Shared test helpers in `test/helpers.ts`: `makeMockFetch`, `standardRunResponses`, `TEST_CONFIG`.
 - Cache tests use `cacheTtlMinutes: 0` (disabled) by default, `cacheTtlMinutes: 60` for cache-hit tests.
-- **Important:** In OpenClaw's test environment (`VITEST=1`), plugins are disabled by default. Our standalone tests work because they call `createSocialPlatformsTool()` directly, bypassing the plugin loader.
+- Each tool is tested by calling its `create*Tool()` factory directly, bypassing the plugin loader.
+- **Current state:** 10/10 test files, 69/69 tests passing.
 
 ---
 
@@ -278,12 +332,14 @@ And returns `externalContent: { untrusted: true, source: "social_platforms", wra
 
 2. **`openclaw.plugin.json` is mandatory.** Without it, the plugin will never load. The file is read for config validation before any plugin code executes.
 
-3. **Tool name collisions are silent drops.** If our tool name (`social_platforms`) collides with a core tool, it gets silently skipped. Currently safe — no core tool has this name.
+3. **Tool name collisions are silent drops.** If a tool name collides with a core tool, it gets silently skipped.
 
 4. **Config validation happens before code.** If the config doesn't match `configSchema`, the plugin won't load at all. Test schema changes carefully.
 
 5. **`workspace:*` deps break outside the monorepo.** We use `"openclaw": "^2026.2.18"` in devDependencies (not `workspace:*`). The Jiti alias resolves `openclaw/plugin-sdk` at runtime from the host OpenClaw installation.
 
-6. **Plugin tools are gated by allowlists.** Users must add `social_platforms` (or `group:plugins` or `apify-openclaw-integration`) to their `tools.alsoAllow` config for the tool to appear in agent runs.
+6. **Plugin tools are gated by allowlists.** Users must add tool names (or `group:plugins` or `apify-openclaw-integration`) to their `tools.alsoAllow` config for tools to appear in agent runs.
 
 7. **No `Type.Union` in schemas.** OpenClaw's tool schema validation rejects `anyOf`/`oneOf`/`allOf`. Use `stringEnum()` for enum strings and `Type.Optional()` for optional fields.
+
+8. **Actor ID URL encoding.** `startApifyActorRun` must use `encodeURIComponent(actorId)` in the URL path. Without it, `username/actor-name` gets parsed as a multi-segment path and returns 404. All actor IDs use `~` format (`username~actor-name`) which is unreserved and won't be percent-encoded, but the `encodeURIComponent` guard is kept for safety.

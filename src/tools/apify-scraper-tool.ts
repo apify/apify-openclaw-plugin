@@ -65,7 +65,7 @@ const ApifyScraperSchema = Type.Object({
   actorId: Type.Optional(
     Type.String({
       description:
-        "Actor ID or slug (e.g. 'apify/google-search-scraper' or 'compass/crawler-google-places'). " +
+        "Actor ID or slug (e.g. 'apify~google-search-scraper' or 'compass~crawler-google-places'). " +
         "When action='discover': fetches the actor's input schema. " +
         "When action='start': the actor to run.",
     }),
@@ -138,7 +138,7 @@ async function handleDiscover(params: {
       username: str(data.username),
       description: str(data.description),
       inputSchema,
-      tip: `Use action='start' with actorId='${str(data.username)}/${str(data.name)}' and the input parameters from inputSchema.`,
+      tip: `Use action='start' with actorId='${str(data.username)}~${str(data.name)}' and the input parameters from inputSchema.`,
     };
   }
 
@@ -155,7 +155,7 @@ async function handleDiscover(params: {
   const lines: string[] = [`## Apify Store results for: "${query}"`, ""];
 
   for (const actor of actors) {
-    const slug = `${actor.username}/${actor.name}`;
+    const slug = `${actor.username}~${actor.name}`;
     const runs = actor.stats?.totalRuns ? ` · ${actor.stats.totalRuns.toLocaleString()} runs` : "";
     const pricing = actor.currentPricingInfo?.pricingModel
       ? ` · ${actor.currentPricingInfo.pricingModel}`
@@ -328,12 +328,12 @@ THREE-ACTION WORKFLOW:
 SHORTCUT (if you already know the actor and its params):
 - Skip discover, go straight to start + collect.
 
-Actor ID format: "username/actor-name" (e.g. "apify/google-search-scraper") — browse at https://apify.com/store
+Actor ID format: "username~actor-name" (e.g. "apify~google-search-scraper") — browse at https://apify.com/store
 
 EXAMPLES:
   Discover: { action: "discover", query: "linkedin company scraper" }
-  Schema:   { action: "discover", actorId: "apify/linkedin-profile-scraper" }
-  Start:    { action: "start", actorId: "apify/google-search-scraper", input: { queries: ["OpenAI"], maxPagesPerQuery: 1 }, label: "google-search" }
+  Schema:   { action: "discover", actorId: "apify~linkedin-profile-scraper" }
+  Start:    { action: "start", actorId: "apify~google-search-scraper", input: { queries: ["OpenAI"], maxPagesPerQuery: 1 }, label: "google-search" }
   Collect:  { action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }`;
 
 export function createApifyScraperTool(options?: {

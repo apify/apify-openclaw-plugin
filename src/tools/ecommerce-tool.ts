@@ -17,7 +17,7 @@ import { PreparedRun, runTwoPhaseCollect, runTwoPhaseStart } from "../tool-helpe
 const CACHE = new Map<string, CacheEntry<Record<string, unknown>>>();
 
 // Single actor, source maps to "action" in the actor sense
-const ACTOR_ID = "apify/e-commerce-scraping-tool";
+const ACTOR_ID = "apify~e-commerce-scraping-tool";
 const SOURCES = ["products", "reviews", "sellers"] as const;
 type Source = (typeof SOURCES)[number];
 
