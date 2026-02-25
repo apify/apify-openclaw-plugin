@@ -1,14 +1,15 @@
 {
   "id": "apify-openclaw-integration",
-  "name": "Apify Social Scraper",
-  "description": "Social media scraping via Apify (Instagram, TikTok, YouTube, LinkedIn)",
+  "name": "Apify",
+  "description": "Web scraping and data extraction via Apify — market research, competitor intelligence, trend analysis, lead generation, e-commerce, social media analytics, and more.",
+  "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
       "enabled": {
         "type": "boolean",
-        "description": "Enable social scraping tool (default: true when apiKey is set)."
+        "description": "Enable the Apify plugin (default: true when apiKey is set)."
       },
       "apiKey": {
         "type": "string",
@@ -21,21 +22,32 @@
       "cacheTtlMinutes": {
         "type": "number",
         "minimum": 0,
-        "description": "Cache TTL in minutes (default: 15)."
+        "description": "Cache TTL in minutes for completed run results (default: 15)."
       },
       "maxResults": {
         "type": "number",
         "minimum": 1,
-        "maximum": 100,
-        "description": "Max results default (default: 20)."
+        "maximum": 1000,
+        "description": "Default max results per actor run (default: 20)."
       },
-      "allowedPlatforms": {
+      "enabledTools": {
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["instagram", "tiktok", "youtube", "linkedin"]
+          "enum": [
+            "market_research",
+            "competitor_intelligence",
+            "trend_analysis",
+            "lead_generation",
+            "ecommerce",
+            "content_analytics",
+            "audience_analysis",
+            "influencer_discovery",
+            "brand_reputation",
+            "apify_scraper"
+          ]
         },
-        "description": "Platforms the user has enabled (default: all)."
+        "description": "Which tools to register (default: all tools enabled)."
       }
     }
   },
@@ -46,10 +58,14 @@
       "help": "Get one at https://console.apify.com/"
     },
     "enabled": {
-      "label": "Enable Social Scraping"
+      "label": "Enable Apify Plugin"
+    },
+    "enabledTools": {
+      "label": "Enabled Tools",
+      "advanced": true
     },
     "baseUrl": {
-      "label": "Apify API Base URL",
+      "label": "API Base URL",
       "advanced": true
     },
     "cacheTtlMinutes": {
@@ -58,9 +74,6 @@
     },
     "maxResults": {
       "label": "Default Max Results"
-    },
-    "allowedPlatforms": {
-      "label": "Allowed Platforms"
     }
   }
 }
