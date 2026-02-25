@@ -1,6 +1,35 @@
+import readline from "readline";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { normalizeSecretInput } from "./util.js";
 import { apifyFetch, DEFAULT_APIFY_BASE_URL } from "./apify-client.js";
+
+// ---------------------------------------------------------------------------
+// readline helpers (following OuraClaw pattern)
+// ---------------------------------------------------------------------------
+
+function ask(rl: readline.Interface, question: string, defaultValue?: string): Promise<string> {
+  const suffix = defaultValue ? ` (${defaultValue})` : "";
+  return new Promise((resolve) => {
+    rl.question(`${question}${suffix}: `, (answer) => {
+      resolve(answer.trim() || defaultValue || "");
+    });
+  });
+}
+
+function confirm(rl: readline.Interface, question: string, defaultYes = true): Promise<boolean> {
+  const hint = defaultYes ? "[Y/n]" : "[y/N]";
+  return new Promise((resolve) => {
+    rl.question(`${question} ${hint} `, (answer) => {
+      const a = answer.trim().toLowerCase();
+      if (a === "") resolve(defaultYes);
+      else resolve(a === "y" || a === "yes");
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// CLI registration
+// ---------------------------------------------------------------------------
 
 export function registerCli(api: OpenClawPluginApi): void {
   api.registerCli(
@@ -11,7 +40,7 @@ export function registerCli(api: OpenClawPluginApi): void {
 
       apify
         .command("setup")
-        .description("Show setup instructions for the Apify plugin")
+        .description("Interactive setup wizard for the Apify plugin")
         .action(() => runSetupCommand(api));
 
       apify
@@ -28,6 +57,10 @@ export function registerCli(api: OpenClawPluginApi): void {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function getApiKey(api: OpenClawPluginApi): string | undefined {
   const config = (api.pluginConfig ?? {}) as Record<string, unknown>;
   const fromConfig = typeof config.apiKey === "string" ? normalizeSecretInput(config.apiKey) : "";
@@ -41,45 +74,147 @@ function getBaseUrl(api: OpenClawPluginApi): string {
   return raw || DEFAULT_APIFY_BASE_URL;
 }
 
-function runSetupCommand(api: OpenClawPluginApi): void {
-  const apiKey = getApiKey(api);
-  console.log("\n=== Apify Plugin Setup ===\n");
+const ALL_TOOLS: { name: string; desc: string }[] = [
+  { name: "market_research",        desc: "Google Maps, Booking, TripAdvisor" },
+  { name: "competitor_intelligence", desc: "Competitor profiles, reviews, search rankings" },
+  { name: "trend_analysis",         desc: "Google Trends, Instagram & TikTok hashtags" },
+  { name: "lead_generation",        desc: "Business leads with contact info" },
+  { name: "ecommerce",              desc: "Product, review, and seller data" },
+  { name: "content_analytics",      desc: "Post engagement across Instagram, YouTube, TikTok" },
+  { name: "audience_analysis",      desc: "Profile follower counts and channel stats" },
+  { name: "influencer_discovery",   desc: "Find creators by niche or hashtag" },
+  { name: "brand_reputation",       desc: "Reviews and comments monitoring" },
+  { name: "apify_scraper",          desc: "Universal scraper — any Apify actor" },
+];
 
-  if (apiKey) {
-    console.log("✓ API key is already configured.");
-    console.log("  Run 'openclaw apify status' to see full configuration.");
-    console.log("  Run 'openclaw apify test' to verify the connection.\n");
-    return;
+// ---------------------------------------------------------------------------
+// setup command
+// ---------------------------------------------------------------------------
+
+async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  try {
+    console.log("\n╔══════════════════════════════════════╗");
+    console.log("║      Apify Plugin Setup Wizard       ║");
+    console.log("╚══════════════════════════════════════╝\n");
+
+    // ── Step 1: API key ──────────────────────────────────────────────────────
+    console.log("Step 1 of 3 — API Key\n");
+
+    const existingKey = getApiKey(api);
+    let apiKey: string;
+
+    if (existingKey) {
+      console.log(`  ✓ API key already configured: ${existingKey.slice(0, 12)}…\n`);
+      const change = await confirm(rl, "  Replace it with a new key?", false);
+      if (change) {
+        apiKey = await ask(rl, "\n  Enter new API key (from console.apify.com/settings/integrations)");
+        apiKey = normalizeSecretInput(apiKey);
+      } else {
+        apiKey = existingKey;
+      }
+    } else {
+      console.log("  No API key found. Get yours at:");
+      console.log("  https://console.apify.com/settings/integrations\n");
+      apiKey = await ask(rl, "  Paste your Apify API key");
+      apiKey = normalizeSecretInput(apiKey);
+    }
+
+    if (!apiKey) {
+      console.log("\n  ✗ No API key provided. Setup cancelled.\n");
+      return;
+    }
+
+    // ── Step 2: Verify ───────────────────────────────────────────────────────
+    console.log("\nStep 2 of 3 — Verifying connection…\n");
+    const baseUrl = getBaseUrl(api);
+    let accountInfo = "";
+
+    try {
+      process.stdout.write("  Connecting to Apify API… ");
+      const result = await apifyFetch<{ data: { username?: string; plan?: { name?: string } } }>({
+        path: "/v2/users/me",
+        apiKey,
+        baseUrl,
+        errorPrefix: "Verification failed",
+      });
+      const user = result.data;
+      accountInfo = `@${user.username ?? "unknown"} (${user.plan?.name ?? "unknown"} plan)`;
+      console.log(`done.\n  ✓ Connected as ${accountInfo}\n`);
+    } catch (err) {
+      console.log("failed.");
+      console.log(`  ✗ ${err instanceof Error ? err.message : String(err)}\n`);
+      const cont = await confirm(rl, "  Key seems invalid. Continue anyway?", false);
+      if (!cont) {
+        console.log("\n  Setup cancelled.\n");
+        return;
+      }
+    }
+
+    // ── Step 3: Tool selection ───────────────────────────────────────────────
+    console.log("Step 3 of 3 — Select tools to enable\n");
+    ALL_TOOLS.forEach((t, i) => {
+      const num = String(i + 1).padStart(2);
+      const name = t.name.padEnd(27);
+      console.log(`  ${num}. ${name} ${t.desc}`);
+    });
+    console.log();
+
+    const sel = await ask(rl, "  Enter numbers separated by commas, or 'all'", "all");
+    let selectedTools: string[];
+
+    if (sel.trim().toLowerCase() === "all" || sel.trim() === "") {
+      selectedTools = ALL_TOOLS.map((t) => t.name);
+    } else {
+      const nums = sel
+        .split(",")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => n >= 1 && n <= ALL_TOOLS.length);
+      selectedTools = [...new Set(nums)].map((n) => ALL_TOOLS[n - 1].name);
+    }
+
+    if (selectedTools.length === 0) {
+      console.log("  No valid selection — enabling all tools.\n");
+      selectedTools = ALL_TOOLS.map((t) => t.name);
+    }
+
+    // ── Output ───────────────────────────────────────────────────────────────
+    const allSelected = selectedTools.length === ALL_TOOLS.length;
+    const toolAllow = allSelected
+      ? "      - group:plugins   # all Apify tools"
+      : selectedTools.map((t) => `      - ${t}`).join("\n");
+
+    console.log("\n══════════════════════════════════════════");
+    console.log("  ✓ Setup complete!\n");
+    console.log("  Add this to your OpenClaw config:\n");
+    console.log("  plugins:");
+    console.log("    entries:");
+    console.log("      apify-openclaw-integration:");
+    console.log("        enabled: true");
+    console.log("        config:");
+    console.log(`          apiKey: "${apiKey}"`);
+    console.log("          cacheTtlMinutes: 15");
+    console.log("          maxResults: 20");
+    console.log();
+    console.log("  tools:");
+    console.log("    alsoAllow:");
+    console.log(toolAllow);
+    console.log();
+    if (!allSelected) {
+      console.log(`  Selected tools: ${selectedTools.join(", ")}`);
+      console.log();
+    }
+    console.log("  Then restart: openclaw restart");
+    console.log("══════════════════════════════════════════\n");
+  } finally {
+    rl.close();
   }
-
-  console.log("API key not found. Configure it using one of these methods:\n");
-  console.log("Option 1 — Environment variable (recommended):");
-  console.log("  export APIFY_API_KEY=apify_api_...\n");
-  console.log("Option 2 — Plugin config in your OpenClaw config file:");
-  console.log(`  plugins:
-    entries:
-      apify-openclaw-integration:
-        enabled: true
-        config:
-          apiKey: "apify_api_..."
-          cacheTtlMinutes: 15
-          maxResults: 20\n`);
-  console.log("Get your API key at: https://console.apify.com/settings/integrations\n");
-  console.log("After configuring, allow the tools you want in your config:");
-  console.log(`  tools:
-    alsoAllow:
-      - market_research
-      - competitor_intelligence
-      - trend_analysis
-      - lead_generation
-      - ecommerce
-      - content_analytics
-      - audience_analysis
-      - influencer_discovery
-      - brand_reputation
-      - apify_scraper\n`);
-  console.log("Then restart the gateway: openclaw restart\n");
 }
+
+// ---------------------------------------------------------------------------
+// status command
+// ---------------------------------------------------------------------------
 
 function runStatusCommand(api: OpenClawPluginApi): void {
   const config = (api.pluginConfig ?? {}) as Record<string, unknown>;
@@ -87,18 +222,23 @@ function runStatusCommand(api: OpenClawPluginApi): void {
   const baseUrl = getBaseUrl(api);
 
   console.log("\n=== Apify Plugin Status ===\n");
-  console.log(`API key:    ${apiKey ? `configured (${apiKey.slice(0, 12)}…)` : "NOT SET — run 'openclaw apify setup'"}`);
-  console.log(`Base URL:   ${baseUrl}`);
-  console.log(`Cache TTL:  ${config.cacheTtlMinutes ?? 15} minutes`);
-  console.log(`Max results: ${config.maxResults ?? 20} per run`);
+  console.log(`  API key:       ${apiKey ? `configured (${apiKey.slice(0, 12)}…)` : "NOT SET — run 'openclaw apify setup'"}`);
+  console.log(`  Base URL:      ${baseUrl}`);
+  console.log(`  Cache TTL:     ${config.cacheTtlMinutes ?? 15} minutes`);
+  console.log(`  Max results:   ${config.maxResults ?? 20} per run`);
 
-  const enabledTools = Array.isArray(config.enabledTools) && config.enabledTools.length > 0
-    ? (config.enabledTools as string[]).join(", ")
-    : "all (no restriction)";
-  console.log(`Enabled tools: ${enabledTools}`);
-  console.log(`Plugin enabled: ${config.enabled === false ? "no" : "yes (when API key is set)"}`);
+  const enabledTools =
+    Array.isArray(config.enabledTools) && config.enabledTools.length > 0
+      ? (config.enabledTools as string[]).join(", ")
+      : "all (no restriction)";
+  console.log(`  Tools:         ${enabledTools}`);
+  console.log(`  Plugin:        ${config.enabled === false ? "disabled" : "enabled (when API key is set)"}`);
   console.log();
 }
+
+// ---------------------------------------------------------------------------
+// test command
+// ---------------------------------------------------------------------------
 
 async function runTestCommand(api: OpenClawPluginApi): Promise<void> {
   const apiKey = getApiKey(api);
@@ -107,12 +247,12 @@ async function runTestCommand(api: OpenClawPluginApi): Promise<void> {
   console.log("\n=== Testing Apify API Connection ===\n");
 
   if (!apiKey) {
-    console.log("✗ Cannot test: API key not configured.");
-    console.log("  Run 'openclaw apify setup' for instructions.\n");
+    console.log("  ✗ Cannot test: API key not configured.");
+    console.log("    Run 'openclaw apify setup' to configure.\n");
     return;
   }
 
-  console.log("Connecting to Apify API…");
+  process.stdout.write("  Connecting… ");
 
   try {
     const result = await apifyFetch<{ data: { username?: string; plan?: { name?: string } } }>({
@@ -122,12 +262,14 @@ async function runTestCommand(api: OpenClawPluginApi): Promise<void> {
       errorPrefix: "API test failed",
     });
     const user = result.data;
-    console.log(`✓ Connected successfully!`);
-    console.log(`  Account:  ${user.username ?? "unknown"}`);
-    console.log(`  Plan:     ${user.plan?.name ?? "unknown"}`);
+    console.log("done.\n");
+    console.log(`  ✓ Connected successfully!`);
+    console.log(`    Account: ${user.username ?? "unknown"}`);
+    console.log(`    Plan:    ${user.plan?.name ?? "unknown"}`);
     console.log();
   } catch (err) {
-    console.log(`✗ Connection failed: ${err instanceof Error ? err.message : String(err)}`);
-    console.log("  Check that your API key is correct and has the required permissions.\n");
+    console.log("failed.\n");
+    console.log(`  ✗ ${err instanceof Error ? err.message : String(err)}`);
+    console.log("    Check that your API key is correct.\n");
   }
 }
