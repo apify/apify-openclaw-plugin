@@ -39,9 +39,9 @@ const SOURCES = ["google_maps", "booking", "tripadvisor"] as const;
 type Source = (typeof SOURCES)[number];
 
 const ACTOR_IDS: Record<Source, string> = {
-  google_maps: "compass/crawler-google-places",
-  booking: "voyager/booking-scraper",
-  tripadvisor: "maxcopell/tripadvisor-reviews",
+  google_maps: "compass~crawler-google-places",
+  booking: "voyager~booking-scraper",
+  tripadvisor: "maxcopell~tripadvisor-reviews",
 };
 
 // ---------------------------------------------------------------------------
@@ -326,9 +326,9 @@ Use market_research for:
 - Pricing analysis across a geographic area
 
 Sources:
-- google_maps: Full business details, reviews, hours, contact info via Google Maps (compass/crawler-google-places)
-- booking: Hotel listings, ratings, prices from Booking.com (voyager/booking-scraper)
-- tripadvisor: Hotels, restaurants, attractions from TripAdvisor (maxcopell/tripadvisor-reviews)
+- google_maps: Full business details, reviews, hours, contact info via Google Maps (compass~crawler-google-places)
+- booking: Hotel listings, ratings, prices from Booking.com (voyager~booking-scraper)
+- tripadvisor: Hotels, restaurants, attractions from TripAdvisor (maxcopell~tripadvisor-reviews)
 
 TWO-PHASE PATTERN:
 1. action="start" with requests array → returns runs with runIds

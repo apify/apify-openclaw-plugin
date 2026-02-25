@@ -127,7 +127,7 @@ export async function startApifyActorRun(params: {
 }): Promise<ApifyRunInfo> {
   const result = await apifyFetch<{ data: ApifyRunInfo }>({
     method: "POST",
-    path: `/v2/acts/${params.actorId}/runs`,
+    path: `/v2/acts/${encodeURIComponent(params.actorId)}/runs`,
     apiKey: params.apiKey,
     baseUrl: params.baseUrl,
     body: params.input,

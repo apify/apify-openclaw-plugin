@@ -21,9 +21,9 @@ const SOURCES = ["google_maps", "google_maps_reviews", "google_search"] as const
 type Source = (typeof SOURCES)[number];
 
 const ACTOR_IDS: Record<Source, string> = {
-  google_maps: "compass/crawler-google-places",
-  google_maps_reviews: "compass/Google-Maps-Reviews-Scraper",
-  google_search: "apify/google-search-scraper",
+  google_maps: "compass~crawler-google-places",
+  google_maps_reviews: "compass~Google-Maps-Reviews-Scraper",
+  google_search: "apify~google-search-scraper",
 };
 
 const RequestSchema = Type.Object({
