@@ -12,7 +12,6 @@ import {
   writeCache,
 } from "../util.js";
 import {
-  ApifyPluginConfig,
   apifyFetch,
   getApifyDatasetItems,
   getApifyRunStatus,
@@ -21,12 +20,10 @@ import {
   resolveApiKey,
   resolveBaseUrl,
   resolveEnabled,
-  resolveMaxResults,
   startApifyActorRun,
   str,
   truncateResults,
   TERMINAL_STATUSES,
-  MAX_RESULT_CHARS,
 } from "../apify-client.js";
 
 // ---------------------------------------------------------------------------
@@ -122,14 +119,14 @@ async function handleDiscover(params: {
 
   // Fetch actor schema when actorId provided
   if (actorId) {
-    const result = await apifyFetch<{ data: Record<string, unknown> }>({
-      path: `/v2/acts/${encodeURIComponent(actorId)}`,
+    // Use builds/default to get inputSchema (JSON string) and readme (markdown)
+    const result = await apifyFetch<{ data: { inputSchema: string; readme: string } & Record<string, unknown> }>({
+      path: `/v2/acts/${encodeURIComponent(actorId)}/builds/default`,
       apiKey,
       baseUrl,
       errorPrefix: `Failed to fetch actor '${actorId}'`,
     });
     const data = result.data;
-    const inputSchema = data.defaultRunInput ?? data.inputSchema ?? null;
     return {
       action: "discover",
       actorId,
@@ -137,7 +134,8 @@ async function handleDiscover(params: {
       title: str(data.title),
       username: str(data.username),
       description: str(data.description),
-      inputSchema,
+      inputSchema: data.inputSchema ?? null,
+      readme: data.readme ? (data.readme as string).slice(0, 3000) : null,
       tip: `Use action='start' with actorId='${str(data.username)}~${str(data.name)}' and the input parameters from inputSchema.`,
     };
   }
@@ -312,29 +310,119 @@ async function handleCollect(params: {
 // Tool factory
 // ---------------------------------------------------------------------------
 
-const TOOL_DESCRIPTION = `Universal Apify actor runner with built-in actor discovery.
+const TOOL_DESCRIPTION = `Universal Apify actor runner for web scraping and data extraction.
 
-Use apify_scraper when:
-- No specialized tool (market_research, competitor_intelligence, etc.) covers your use case
-- You need to run a specific Apify actor you already know
-- The user asks about capabilities not covered by other tools
+WORKFLOW:
+1. action="start" + actorId + input → fires the actor run, returns runId/datasetId
+2. action="collect" + runs=[...] → polls status, returns results when done
+3. action="discover" + actorId → fetch input schema + README (use when you need to know what params an actor accepts)
+4. action="discover" + query → search Apify Store for actors by keyword
 
-THREE-ACTION WORKFLOW:
-1. action="discover" + query="<keywords>" → searches Apify Store, returns actor list with IDs
-2. action="discover" + actorId="<id>" → fetches actor's input schema (know what params to pass)
-3. action="start" + actorId="<id>" + input={...} → fires the actor run, returns runId
-4. action="collect" + runs=[...] → polls status, returns results when done
+Actor ID format: "username~actor-name" (tilde, NOT slash). E.g. "apify~google-search-scraper", "compass~crawler-google-places".
+Use action="discover" with actorId to get the full input schema and README from Apify before running an unfamiliar actor.
 
-SHORTCUT (if you already know the actor and its params):
-- Skip discover, go straight to start + collect.
+Domain skills (apify-market-research, apify-lead-generation, etc.) provide actor selection tables for common use cases — consult them if active, but they are optional.
 
-Actor ID format: "username~actor-name" (e.g. "apify~google-search-scraper") — browse at https://apify.com/store
+## Known Actors
+
+### Instagram (12)
+| Actor ID | Best For |
+|----------|----------|
+| apify~instagram-profile-scraper | Profile data, follower counts, bio |
+| apify~instagram-post-scraper | Post details, engagement metrics |
+| apify~instagram-comment-scraper | Comment extraction, sentiment |
+| apify~instagram-hashtag-scraper | Hashtag content, trending topics |
+| apify~instagram-hashtag-stats | Hashtag performance metrics |
+| apify~instagram-reel-scraper | Reels content and metrics |
+| apify~instagram-search-scraper | Search users, places, hashtags |
+| apify~instagram-tagged-scraper | Posts tagged with specific accounts |
+| apify~instagram-followers-count-scraper | Follower count tracking |
+| apify~instagram-scraper | Comprehensive Instagram data |
+| apify~instagram-api-scraper | API-based Instagram access |
+| apify~export-instagram-comments-posts | Bulk comment/post export |
+
+### Facebook (14)
+| Actor ID | Best For |
+|----------|----------|
+| apify~facebook-pages-scraper | Page data, metrics, contact info |
+| apify~facebook-page-contact-information | Emails, phones from pages |
+| apify~facebook-posts-scraper | Post content and engagement |
+| apify~facebook-comments-scraper | Comment extraction |
+| apify~facebook-likes-scraper | Reaction analysis |
+| apify~facebook-reviews-scraper | Page reviews |
+| apify~facebook-groups-scraper | Group content and members |
+| apify~facebook-events-scraper | Event data |
+| apify~facebook-ads-scraper | Ad creative and targeting |
+| apify~facebook-search-scraper | Search results |
+| apify~facebook-reels-scraper | Reels content |
+| apify~facebook-photos-scraper | Photo extraction |
+| apify~facebook-marketplace-scraper | Marketplace listings |
+| apify~facebook-followers-following-scraper | Follower/following lists |
+
+### TikTok (14)
+| Actor ID | Best For |
+|----------|----------|
+| clockworks~tiktok-scraper | Comprehensive TikTok data |
+| clockworks~free-tiktok-scraper | Free TikTok extraction |
+| clockworks~tiktok-profile-scraper | Profile data |
+| clockworks~tiktok-video-scraper | Video details and metrics |
+| clockworks~tiktok-comments-scraper | Comment extraction |
+| clockworks~tiktok-followers-scraper | Follower lists |
+| clockworks~tiktok-user-search-scraper | Find users by keywords |
+| clockworks~tiktok-hashtag-scraper | Hashtag content |
+| clockworks~tiktok-sound-scraper | Trending sounds |
+| clockworks~tiktok-ads-scraper | Ad content |
+| clockworks~tiktok-discover-scraper | Discover page content |
+| clockworks~tiktok-explore-scraper | Explore content |
+| clockworks~tiktok-trends-scraper | Trending content |
+| clockworks~tiktok-live-scraper | Live stream data |
+
+### YouTube (5)
+| Actor ID | Best For |
+|----------|----------|
+| streamers~youtube-scraper | Video data and metrics |
+| streamers~youtube-channel-scraper | Channel information |
+| streamers~youtube-comments-scraper | Comment extraction |
+| streamers~youtube-shorts-scraper | Shorts content |
+| streamers~youtube-video-scraper-by-hashtag | Videos by hashtag |
+
+### Google Maps (4)
+| Actor ID | Best For |
+|----------|----------|
+| compass~crawler-google-places | Business listings, ratings, contact info |
+| compass~google-maps-extractor | Detailed business data |
+| compass~Google-Maps-Reviews-Scraper | Review extraction |
+| poidata~google-maps-email-extractor | Email discovery from listings |
+
+### Other (7)
+| Actor ID | Best For |
+|----------|----------|
+| apify~google-search-scraper | Google search results |
+| apify~google-trends-scraper | Google Trends data |
+| voyager~booking-scraper | Booking.com hotel data |
+| voyager~booking-reviews-scraper | Booking.com reviews |
+| maxcopell~tripadvisor-reviews | TripAdvisor reviews |
+| vdrmota~contact-info-scraper | Contact enrichment from URLs |
+| apify~e-commerce-scraping-tool | Products, reviews, sellers (Amazon, Walmart, 50+ stores) |
+
+## Use Case Quick Reference
+| Goal | Actors |
+|------|--------|
+| Lead generation | compass~crawler-google-places, poidata~google-maps-email-extractor, vdrmota~contact-info-scraper |
+| Market research | compass~crawler-google-places, apify~google-trends-scraper, voyager~booking-scraper |
+| Competitor analysis | apify~facebook-pages-scraper, apify~facebook-ads-scraper, apify~instagram-profile-scraper |
+| Trend tracking | apify~google-trends-scraper, clockworks~tiktok-trends-scraper, apify~instagram-hashtag-stats |
+| Brand monitoring | compass~Google-Maps-Reviews-Scraper, apify~instagram-tagged-scraper, apify~facebook-reviews-scraper |
+| Influencer discovery | apify~instagram-profile-scraper, clockworks~tiktok-profile-scraper, streamers~youtube-channel-scraper |
+| Content analytics | apify~instagram-post-scraper, clockworks~tiktok-scraper, streamers~youtube-scraper |
+| Audience analysis | apify~instagram-followers-count-scraper, clockworks~tiktok-followers-scraper |
+| E-commerce | apify~e-commerce-scraping-tool |
 
 EXAMPLES:
-  Discover: { action: "discover", query: "linkedin company scraper" }
-  Schema:   { action: "discover", actorId: "apify~linkedin-profile-scraper" }
-  Start:    { action: "start", actorId: "apify~google-search-scraper", input: { queries: ["OpenAI"], maxPagesPerQuery: 1 }, label: "google-search" }
-  Collect:  { action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }`;
+  Schema:  { action: "discover", actorId: "compass~crawler-google-places" }
+  Search:  { action: "discover", query: "linkedin company scraper" }
+  Start:   { action: "start", actorId: "apify~google-search-scraper", input: { queries: ["OpenAI"], maxPagesPerQuery: 1 }, label: "search" }
+  Collect: { action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }`;
 
 export function createApifyScraperTool(options?: {
   pluginConfig?: Record<string, unknown>;

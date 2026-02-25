@@ -1,7 +1,7 @@
 {
   "id": "apify-openclaw-integration",
   "name": "Apify",
-  "description": "Web scraping and data extraction via Apify — market research, competitor intelligence, trend analysis, lead generation, e-commerce, social media analytics, and more.",
+  "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ actors across social media, maps, search, e-commerce, and more.",
   "skills": ["./skills"],
   "configSchema": {
     "type": "object",
@@ -34,18 +34,7 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": [
-            "market_research",
-            "competitor_intelligence",
-            "trend_analysis",
-            "lead_generation",
-            "ecommerce",
-            "content_analytics",
-            "audience_analysis",
-            "influencer_discovery",
-            "brand_reputation",
-            "apify_scraper"
-          ]
+          "enum": ["apify_scraper"]
         },
         "description": "Which tools to register (default: all tools enabled)."
       }
