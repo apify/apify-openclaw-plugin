@@ -88,6 +88,83 @@ const ALL_TOOLS: { name: string; desc: string }[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Config write helpers
+// ---------------------------------------------------------------------------
+
+async function applyConfigChanges(
+  api: OpenClawPluginApi,
+  apiKey: string,
+  selectedTools: string[],
+  allSelected: boolean,
+): Promise<void> {
+  if (!api.runtime?.config?.loadConfig || !api.runtime?.config?.writeConfigFile) {
+    throw new Error("Config write API not available — update OpenClaw and retry.");
+  }
+
+  const cfg = api.runtime.config.loadConfig();
+
+  // Merge plugin entry
+  if (!cfg.plugins) cfg.plugins = {};
+  if (!cfg.plugins.entries) cfg.plugins.entries = {};
+  const existing = cfg.plugins.entries["apify-openclaw-integration"] ?? {};
+  const existingPluginConfig =
+    typeof existing.config === "object" && existing.config !== null
+      ? (existing.config as Record<string, unknown>)
+      : {};
+  cfg.plugins.entries["apify-openclaw-integration"] = {
+    ...existing,
+    enabled: true,
+    config: {
+      ...existingPluginConfig,
+      apiKey,
+      cacheTtlMinutes: existingPluginConfig.cacheTtlMinutes ?? 15,
+      maxResults: existingPluginConfig.maxResults ?? 20,
+    },
+  };
+
+  // Merge tools.alsoAllow (add selected tools, avoid duplicates)
+  if (!cfg.tools) cfg.tools = {};
+  if (!cfg.tools.alsoAllow) cfg.tools.alsoAllow = [];
+  const toolsToAdd = allSelected ? ["group:plugins"] : selectedTools;
+  for (const t of toolsToAdd) {
+    if (!cfg.tools.alsoAllow.includes(t)) {
+      cfg.tools.alsoAllow.push(t);
+    }
+  }
+
+  await api.runtime.config.writeConfigFile(cfg);
+}
+
+function printManualConfig(apiKey: string, selectedTools: string[], allSelected: boolean): void {
+  const toolAllow = allSelected
+    ? "      - group:plugins   # all Apify tools"
+    : selectedTools.map((t) => `      - ${t}`).join("\n");
+
+  console.log("\n══════════════════════════════════════════");
+  console.log("  ✓ Setup complete!\n");
+  console.log("  Add this to your OpenClaw config:\n");
+  console.log("  plugins:");
+  console.log("    entries:");
+  console.log("      apify-openclaw-integration:");
+  console.log("        enabled: true");
+  console.log("        config:");
+  console.log(`          apiKey: "${apiKey}"`);
+  console.log("          cacheTtlMinutes: 15");
+  console.log("          maxResults: 20");
+  console.log();
+  console.log("  tools:");
+  console.log("    alsoAllow:");
+  console.log(toolAllow);
+  console.log();
+  if (!allSelected) {
+    console.log(`  Selected tools: ${selectedTools.join(", ")}`);
+    console.log();
+  }
+  console.log("  Then restart: openclaw restart");
+  console.log("══════════════════════════════════════════\n");
+}
+
+// ---------------------------------------------------------------------------
 // setup command
 // ---------------------------------------------------------------------------
 
@@ -179,34 +256,35 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
       selectedTools = ALL_TOOLS.map((t) => t.name);
     }
 
-    // ── Output ───────────────────────────────────────────────────────────────
+    // ── Write config or print manual instructions ────────────────────────────
     const allSelected = selectedTools.length === ALL_TOOLS.length;
-    const toolAllow = allSelected
-      ? "      - group:plugins   # all Apify tools"
-      : selectedTools.map((t) => `      - ${t}`).join("\n");
 
-    console.log("\n══════════════════════════════════════════");
-    console.log("  ✓ Setup complete!\n");
-    console.log("  Add this to your OpenClaw config:\n");
-    console.log("  plugins:");
-    console.log("    entries:");
-    console.log("      apify-openclaw-integration:");
-    console.log("        enabled: true");
-    console.log("        config:");
-    console.log(`          apiKey: "${apiKey}"`);
-    console.log("          cacheTtlMinutes: 15");
-    console.log("          maxResults: 20");
     console.log();
-    console.log("  tools:");
-    console.log("    alsoAllow:");
-    console.log(toolAllow);
-    console.log();
-    if (!allSelected) {
-      console.log(`  Selected tools: ${selectedTools.join(", ")}`);
-      console.log();
+    const writeDirectly = await confirm(rl, "  Write config directly to your OpenClaw config file?", true);
+
+    if (writeDirectly) {
+      try {
+        process.stdout.write("\n  Writing config… ");
+        await applyConfigChanges(api, apiKey, selectedTools, allSelected);
+        console.log("done.\n");
+        console.log("══════════════════════════════════════════");
+        console.log("  ✓ Config saved!\n");
+        if (!allSelected) {
+          console.log(`  Tools enabled: ${selectedTools.join(", ")}\n`);
+        } else {
+          console.log("  All tools enabled.\n");
+        }
+        console.log("  Restart OpenClaw to apply: openclaw restart");
+        console.log("══════════════════════════════════════════\n");
+      } catch (err) {
+        console.log("failed.");
+        console.log(`\n  ✗ ${err instanceof Error ? err.message : String(err)}`);
+        console.log("\n  Falling back to manual config:\n");
+        printManualConfig(apiKey, selectedTools, allSelected);
+      }
+    } else {
+      printManualConfig(apiKey, selectedTools, allSelected);
     }
-    console.log("  Then restart: openclaw restart");
-    console.log("══════════════════════════════════════════\n");
   } finally {
     rl.close();
   }
