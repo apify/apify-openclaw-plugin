@@ -75,16 +75,7 @@ function getBaseUrl(api: OpenClawPluginApi): string {
 }
 
 const ALL_TOOLS: { name: string; desc: string }[] = [
-  { name: "market_research",        desc: "Google Maps, Booking, TripAdvisor" },
-  { name: "competitor_intelligence", desc: "Competitor profiles, reviews, search rankings" },
-  { name: "trend_analysis",         desc: "Google Trends, Instagram & TikTok hashtags" },
-  { name: "lead_generation",        desc: "Business leads with contact info" },
-  { name: "ecommerce",              desc: "Product, review, and seller data" },
-  { name: "content_analytics",      desc: "Post engagement across Instagram, YouTube, TikTok" },
-  { name: "audience_analysis",      desc: "Profile follower counts and channel stats" },
-  { name: "influencer_discovery",   desc: "Find creators by niche or hashtag" },
-  { name: "brand_reputation",       desc: "Reviews and comments monitoring" },
-  { name: "apify_scraper",          desc: "Universal scraper — any Apify actor" },
+  { name: "apify_scraper", desc: "Universal scraper — any Apify actor (57+ actors)" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -177,7 +168,7 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
     console.log("╚══════════════════════════════════════╝\n");
 
     // ── Step 1: API key ──────────────────────────────────────────────────────
-    console.log("Step 1 of 3 — API Key\n");
+    console.log("Step 1 of 2 — API Key\n");
 
     const existingKey = getApiKey(api);
     let apiKey: string;
@@ -204,7 +195,7 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
     }
 
     // ── Step 2: Verify ───────────────────────────────────────────────────────
-    console.log("\nStep 2 of 3 — Verifying connection…\n");
+    console.log("\nStep 2 of 2 — Verifying connection…\n");
     const baseUrl = getBaseUrl(api);
     let accountInfo = "";
 
@@ -229,35 +220,9 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
       }
     }
 
-    // ── Step 3: Tool selection ───────────────────────────────────────────────
-    console.log("Step 3 of 3 — Select tools to enable\n");
-    ALL_TOOLS.forEach((t, i) => {
-      const num = String(i + 1).padStart(2);
-      const name = t.name.padEnd(27);
-      console.log(`  ${num}. ${name} ${t.desc}`);
-    });
-    console.log();
-
-    const sel = await ask(rl, "  Enter numbers separated by commas, or 'all'", "all");
-    let selectedTools: string[];
-
-    if (sel.trim().toLowerCase() === "all" || sel.trim() === "") {
-      selectedTools = ALL_TOOLS.map((t) => t.name);
-    } else {
-      const nums = sel
-        .split(",")
-        .map((s) => parseInt(s.trim(), 10))
-        .filter((n) => n >= 1 && n <= ALL_TOOLS.length);
-      selectedTools = [...new Set(nums)].map((n) => ALL_TOOLS[n - 1].name);
-    }
-
-    if (selectedTools.length === 0) {
-      console.log("  No valid selection — enabling all tools.\n");
-      selectedTools = ALL_TOOLS.map((t) => t.name);
-    }
-
     // ── Write config or print manual instructions ────────────────────────────
-    const allSelected = selectedTools.length === ALL_TOOLS.length;
+    const selectedTools = ALL_TOOLS.map((t) => t.name);
+    const allSelected = true;
 
     console.log();
     const writeDirectly = await confirm(rl, "  Write config directly to your OpenClaw config file?", true);

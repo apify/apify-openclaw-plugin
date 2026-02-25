@@ -38,7 +38,7 @@ describe("apify_scraper tool", () => {
     expect(data.text).toContain("Google Search Scraper");
   });
 
-  it("discover action — actor schema fetch", async () => {
+  it("discover action — actor schema fetch via builds/default", async () => {
     vi.stubGlobal("fetch", makeMockFetch([
       {
         ok: true,
@@ -48,17 +48,23 @@ describe("apify_scraper tool", () => {
             title: "Google Search Scraper",
             username: "apify",
             description: "Scrape Google Search results",
-            defaultRunInput: { queries: { type: "array", description: "Search queries" } },
+            inputSchema: JSON.stringify({
+              title: "Google Search Scraper",
+              type: "object",
+              properties: { queries: { type: "array", description: "Search queries" } },
+            }),
+            readme: "# Google Search Scraper\nScrape Google search results.",
           },
         },
       },
     ]));
     const tool = createApifyScraperTool(TEST_CONFIG)!;
-    const result = await tool.execute("t1", { action: "discover", actorId: "apify/google-search-scraper" });
+    const result = await tool.execute("t1", { action: "discover", actorId: "apify~google-search-scraper" });
     const data = JSON.parse((result.content[0] as { text: string }).text);
     expect(data.action).toBe("discover");
-    expect(data.actorId).toBe("apify/google-search-scraper");
+    expect(data.actorId).toBe("apify~google-search-scraper");
     expect(data.inputSchema).toBeDefined();
+    expect(data.readme).toBeDefined();
     expect(data.tip).toContain("action='start'");
   });
 
@@ -125,9 +131,10 @@ describe("apify_scraper tool", () => {
     await expect(tool.execute("t1", { action: "unknown" })).rejects.toThrow();
   });
 
-  it("returns null when tool is disabled", () => {
+  it("returns null when apify_scraper is excluded from enabledTools", () => {
+    // Non-empty enabledTools that doesn't include "apify_scraper" disables the tool
     const tool = createApifyScraperTool({
-      pluginConfig: { apiKey: "test-key", enabledTools: ["market_research"] },
+      pluginConfig: { apiKey: "test-key", enabledTools: ["other_tool"] as string[] },
     });
     expect(tool).toBeNull();
   });
