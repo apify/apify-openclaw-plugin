@@ -151,7 +151,7 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
     console.log(`  Selected tools: ${selectedTools.join(", ")}`);
     console.log();
   }
-  console.log("  Then restart: openclaw restart");
+  console.log("  Then restart: openclaw gateway restart");
   console.log("══════════════════════════════════════════\n");
 }
 
@@ -239,7 +239,7 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
         } else {
           console.log("  All tools enabled.\n");
         }
-        console.log("  Restart OpenClaw to apply: openclaw restart");
+        console.log("  Restart OpenClaw to apply: openclaw gateway restart");
         console.log("══════════════════════════════════════════\n");
       } catch (err) {
         console.log("failed.");

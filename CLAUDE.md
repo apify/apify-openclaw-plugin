@@ -277,7 +277,7 @@ Allowlists can also be set per-agent (`agents.list[].tools.allow/alsoAllow`) or 
 }
 ```
 
-Config changes require a gateway restart (`openclaw restart`).
+Config changes require a gateway restart (`openclaw gateway restart`).
 
 ---
 
