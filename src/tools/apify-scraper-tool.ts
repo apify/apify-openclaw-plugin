@@ -43,11 +43,10 @@ const RunRefSchema = Type.Object({
 });
 
 const ApifyScraperSchema = Type.Object({
-  action: stringEnum(["discover", "start", "collect", "cached_runs"] as const, {
+  action: stringEnum(["discover", "start", "collect"] as const, {
     description:
       "'discover': search Apify Store by keyword OR fetch an Actor's input schema. " +
-      "'start': run any Apify Actor by ID. 'collect': get results from previously started runs. " +
-      "'cached_runs': list previously collected runs available in cache (metadata only, no result text).",
+      "'start': run any Apify Actor by ID. 'collect': get results from previously started runs.",
   }),
 
   // discover — search Apify Store
@@ -247,6 +246,7 @@ async function handleCollect(params: {
       const payload: Record<string, unknown> = {
         actorId,
         runId,
+        datasetId,
         status: "SUCCEEDED",
         input: inputRecord?.value ?? null,
         resultCount: items.length,
@@ -290,35 +290,53 @@ async function handleCollect(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Cached runs action — lightweight metadata listing (no result text)
+// Cache summary — auto-injected into every response
 // ---------------------------------------------------------------------------
 
-function handleCachedRuns(): Record<string, unknown> {
-  const now = Date.now();
-  const runs: Record<string, unknown>[] = [];
+function summarizeInput(input: unknown, maxLen = 200): string {
+  if (!input || typeof input !== "object") return "(none)";
+  const obj = input as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const [key, val] of Object.entries(obj)) {
+    const valStr = Array.isArray(val)
+      ? JSON.stringify(val.length > 3 ? [...val.slice(0, 3), `...+${val.length - 3}`] : val)
+      : typeof val === "object" && val !== null
+        ? JSON.stringify(val).slice(0, 50)
+        : String(val);
+    parts.push(`${key}: ${valStr}`);
+  }
+  const joined = parts.join(", ");
+  return joined.length > maxLen ? joined.slice(0, maxLen) + "..." : joined;
+}
 
-  for (const [, entry] of SCRAPER_CACHE.entries()) {
-    if (now > entry.expiresAt) continue;
-    const v = entry.value;
-    runs.push({
-      runId: v.runId,
-      actorId: v.actorId,
-      label: v.label ?? null,
-      input: v.input ?? null,
-      resultCount: v.resultCount,
-      fetchedAt: v.fetchedAt,
-      expiresIn: `${Math.round((entry.expiresAt - now) / 60_000)}m`,
-    });
+function buildCacheSummary(): string | null {
+  const now = Date.now();
+
+  // Purge expired entries
+  for (const [key, entry] of SCRAPER_CACHE.entries()) {
+    if (now > entry.expiresAt) SCRAPER_CACHE.delete(key);
   }
 
-  return {
-    action: "cached_runs",
-    count: runs.length,
-    runs,
-    tip: runs.length
-      ? "Use action='collect' with the run references above to retrieve cached results instantly."
-      : "No cached runs available. Use action='start' to begin a new run.",
-  };
+  if (SCRAPER_CACHE.size === 0) return null;
+
+  // Take last 10 entries by insertedAt (most recent first)
+  const entries = [...SCRAPER_CACHE.entries()]
+    .sort((a, b) => b[1].insertedAt - a[1].insertedAt)
+    .slice(0, 10);
+
+  const lines: string[] = ["--- Previous runs (use collect to retrieve) ---"];
+
+  for (const [, entry] of entries) {
+    const v = entry.value;
+    const labelPrefix = v.label ? `[${v.label}] ` : "";
+    const expires = new Date(entry.expiresAt).toISOString().replace("T", " ").slice(0, 16);
+    lines.push(
+      `• ${labelPrefix}${v.actorId} — ${v.resultCount} results (run:${v.runId}, ds:${v.datasetId ?? "unknown"}, expires ${expires})`,
+    );
+    lines.push(`  Input: ${summarizeInput(v.input)}`);
+  }
+
+  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +358,7 @@ Use action="discover" with actorId to get the full input schema before running a
 
 BATCHING: Most Actors accept arrays of URLs/queries in their input (e.g. startUrls, queries). Always batch multiple targets into a SINGLE run instead of starting separate runs for each URL. One run with 5 URLs is far cheaper and faster than 5 runs with 1 URL each.
 
-CACHING: Before starting a new run, call action="cached_runs" to see what data is already available. This returns lightweight metadata (actorId, label, resultCount, expiresIn) without the heavy result text. If a matching run exists, use action="collect" with its run reference to get cached results instantly. Never re-run an Actor for data you already collected.
+CACHING: Every response includes a "previousRuns" field summarizing cached scrape results (actor, result count, input, run/dataset IDs). Evaluate whether this data satisfies your needs before starting new runs. If it does, use action="collect" with the run/dataset IDs to retrieve cached results instantly. If the data is insufficient or doesn't match what you need, proceed with action="discover" and action="start" for additional scraping.
 
 KNOWN ACTORS:
 Instagram: apify~instagram-profile-scraper, apify~instagram-post-scraper, apify~instagram-comment-scraper, apify~instagram-hashtag-scraper, apify~instagram-hashtag-stats, apify~instagram-reel-scraper, apify~instagram-search-scraper, apify~instagram-tagged-scraper, apify~instagram-followers-count-scraper, apify~instagram-scraper, apify~instagram-api-scraper, apify~export-instagram-comments-posts
@@ -388,15 +406,16 @@ export function createApifyScraperTool(options?: {
         });
       }
 
+      let result: Record<string, unknown>;
+
       switch (action) {
         case "discover":
-          return jsonResult(
-            await handleDiscover({
-              query: readStringParam(typedArgs, "query"),
-              actorId: readStringParam(typedArgs, "actorId"),
-              client,
-            }),
-          );
+          result = await handleDiscover({
+            query: readStringParam(typedArgs, "query"),
+            actorId: readStringParam(typedArgs, "actorId"),
+            client,
+          });
+          break;
         case "start": {
           const actorId = readStringParam(typedArgs, "actorId", { required: true });
           const rawInput = typedArgs.input;
@@ -404,28 +423,31 @@ export function createApifyScraperTool(options?: {
             rawInput && typeof rawInput === "object" && !Array.isArray(rawInput)
               ? (rawInput as Record<string, unknown>)
               : {};
-          return jsonResult(
-            await handleStart({
-              actorId,
-              input,
-              label: readStringParam(typedArgs, "label"),
-              client,
-            }),
-          );
+          result = await handleStart({
+            actorId,
+            input,
+            label: readStringParam(typedArgs, "label"),
+            client,
+          });
+          break;
         }
         case "collect":
-          return jsonResult(
-            await handleCollect({
-              runs: typedArgs.runs as Record<string, unknown>[],
-              client,
-              cacheTtlMs,
-            }),
-          );
-        case "cached_runs":
-          return jsonResult(handleCachedRuns());
+          result = await handleCollect({
+            runs: typedArgs.runs as Record<string, unknown>[],
+            client,
+            cacheTtlMs,
+          });
+          break;
         default:
-          throw new ToolInputError(`Unknown action: "${action}". Use "discover", "start", "collect", or "cached_runs".`);
+          throw new ToolInputError(`Unknown action: "${action}". Use "discover", "start", or "collect".`);
       }
+
+      const cacheSummary = buildCacheSummary();
+      if (cacheSummary) {
+        result.previousRuns = cacheSummary;
+      }
+
+      return jsonResult(result);
     },
   };
 }
