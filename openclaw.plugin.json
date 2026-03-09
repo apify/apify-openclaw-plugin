@@ -2,7 +2,6 @@
   "id": "apify-openclaw-integration",
   "name": "Apify",
   "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ actors across social media, maps, search, e-commerce, and more.",
-  "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
