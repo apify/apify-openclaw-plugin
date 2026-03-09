@@ -1,7 +1,7 @@
 {
   "id": "apify-openclaw-integration",
   "name": "Apify",
-  "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ actors across social media, maps, search, e-commerce, and more.",
+  "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ Actors across social media, maps, search, e-commerce, and more.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -22,7 +22,7 @@
         "type": "number",
         "minimum": 1,
         "maximum": 1000,
-        "description": "Default max results per actor run (default: 20)."
+        "description": "Default max results per Actor run (default: 20)."
       },
       "enabledTools": {
         "type": "array",
