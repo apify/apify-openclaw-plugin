@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createApifyScraperTool } from "../src/tools/apify-scraper-tool.js";
-import { makeMockClient, TEST_CONFIG } from "./helpers.js";
+import { makeMockClient, TEST_CONFIG, TEST_CONFIG_WITH_CACHE } from "./helpers.js";
 
 describe("apify_scraper tool", () => {
   it("returns null when no API key", () => {
@@ -126,5 +126,46 @@ describe("apify_scraper tool", () => {
       pluginConfig: { apiKey: "test-key", enabledTools: ["other_tool"] as string[] },
     });
     expect(tool).toBeNull();
+  });
+
+  it("no previousRuns when cache is empty", async () => {
+    const client = makeMockClient({
+      storeList: async () => ({
+        items: [], total: 0, count: 0, offset: 0, limit: 10, desc: false,
+      }),
+    });
+    const tool = createApifyScraperTool({ ...TEST_CONFIG, client })!;
+    const result = await tool.execute("t1", { action: "discover", query: "test" });
+    const data = JSON.parse((result.content[0] as { text: string }).text);
+    expect(data.previousRuns).toBeUndefined();
+  });
+
+  it("previousRuns injected after collect populates cache", async () => {
+    const items = [{ title: "Result 1" }, { title: "Result 2" }];
+    const client = makeMockClient({
+      runGet: async () => ({ id: "run-cache-1", status: "SUCCEEDED", defaultDatasetId: "ds-cache-1", defaultKeyValueStoreId: "kv-1" }),
+      datasetListItems: async () => ({ items, total: 2, count: 2, offset: 0, limit: 100, desc: false }),
+      kvStoreGetRecord: async () => ({ value: { queries: ["test query"], maxResults: 5 } }),
+      storeList: async () => ({
+        items: [], total: 0, count: 0, offset: 0, limit: 10, desc: false,
+      }),
+    });
+    const tool = createApifyScraperTool({ ...TEST_CONFIG_WITH_CACHE, client })!;
+
+    // First: collect to populate cache
+    await tool.execute("t1", {
+      action: "collect",
+      runs: [{ runId: "run-cache-1", actorId: "apify~test-scraper", datasetId: "ds-cache-1" }],
+    });
+
+    // Second: any action should include previousRuns
+    const result = await tool.execute("t2", { action: "discover", query: "something" });
+    const data = JSON.parse((result.content[0] as { text: string }).text);
+    expect(data.previousRuns).toBeDefined();
+    expect(data.previousRuns).toContain("apify~test-scraper");
+    expect(data.previousRuns).toContain("2 results");
+    expect(data.previousRuns).toContain("run:run-cache-1");
+    expect(data.previousRuns).toContain("ds:ds-cache-1");
+    expect(data.previousRuns).toContain("queries: [\"test query\"]");
   });
 });
