@@ -1,7 +1,7 @@
 import readline from "readline";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { normalizeSecretInput } from "./util.js";
-import { apifyFetch, DEFAULT_APIFY_BASE_URL } from "./apify-client.js";
+import { createApifyClient, DEFAULT_APIFY_BASE_URL } from "./apify-client.js";
 
 // ---------------------------------------------------------------------------
 // readline helpers (following OuraClaw pattern)
@@ -75,7 +75,7 @@ function getBaseUrl(api: OpenClawPluginApi): string {
 }
 
 const ALL_TOOLS: { name: string; desc: string }[] = [
-  { name: "apify_scraper", desc: "Universal scraper — any Apify actor (57+ actors)" },
+  { name: "apify_scraper", desc: "Universal scraper — any Apify Actor (57+ Actors)" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -201,14 +201,9 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
 
     try {
       process.stdout.write("  Connecting to Apify API… ");
-      const result = await apifyFetch<{ data: { username?: string; plan?: { name?: string } } }>({
-        path: "/v2/users/me",
-        apiKey,
-        baseUrl,
-        errorPrefix: "Verification failed",
-      });
-      const user = result.data;
-      accountInfo = `@${user.username ?? "unknown"} (${user.plan?.name ?? "unknown"} plan)`;
+      const client = createApifyClient(apiKey, baseUrl);
+      const user = await client.user("me").get();
+      accountInfo = `@${user.username ?? "unknown"} (${user.plan?.id ?? "unknown"} plan)`;
       console.log(`done.\n  ✓ Connected as ${accountInfo}\n`);
     } catch (err) {
       console.log("failed.");
@@ -298,17 +293,12 @@ async function runTestCommand(api: OpenClawPluginApi): Promise<void> {
   process.stdout.write("  Connecting… ");
 
   try {
-    const result = await apifyFetch<{ data: { username?: string; plan?: { name?: string } } }>({
-      path: "/v2/users/me",
-      apiKey,
-      baseUrl,
-      errorPrefix: "API test failed",
-    });
-    const user = result.data;
+    const client = createApifyClient(apiKey, baseUrl);
+    const user = await client.user("me").get();
     console.log("done.\n");
     console.log(`  ✓ Connected successfully!`);
     console.log(`    Account: ${user.username ?? "unknown"}`);
-    console.log(`    Plan:    ${user.plan?.name ?? "unknown"}`);
+    console.log(`    Plan:    ${user.plan?.id ?? "unknown"}`);
     console.log();
   } catch (err) {
     console.log("failed.\n");

@@ -1,4 +1,5 @@
 import { Type } from "@sinclair/typebox";
+import { ApifyClient } from "apify-client";
 import { jsonResult, readStringParam, stringEnum } from "openclaw/plugin-sdk";
 import type { AnyAgentTool } from "openclaw/plugin-sdk";
 import {
@@ -12,22 +13,20 @@ import {
   writeCache,
 } from "../util.js";
 import {
-  apifyFetch,
-  getApifyDatasetItems,
-  getApifyRunStatus,
+  createApifyClient,
   isToolEnabled,
   parsePluginConfig,
   resolveApiKey,
   resolveBaseUrl,
   resolveEnabled,
-  startApifyActorRun,
-  str,
   truncateResults,
   TERMINAL_STATUSES,
 } from "../apify-client.js";
 
 // ---------------------------------------------------------------------------
-// Cache
+// Cache — stores completed run results (keyed by runId) to avoid re-fetching
+// dataset items for runs that already succeeded. TTL is configurable via
+// plugin config `cacheTtlMinutes`.
 // ---------------------------------------------------------------------------
 
 const SCRAPER_CACHE = new Map<string, CacheEntry<Record<string, unknown>>>();
@@ -46,25 +45,25 @@ const RunRefSchema = Type.Object({
 const ApifyScraperSchema = Type.Object({
   action: stringEnum(["discover", "start", "collect"] as const, {
     description:
-      "'discover': search Apify Store by keyword OR fetch an actor's input schema. " +
-      "'start': run any Apify actor by ID. 'collect': get results from previously started runs.",
+      "'discover': search Apify Store by keyword OR fetch an Actor's input schema. " +
+      "'start': run any Apify Actor by ID. 'collect': get results from previously started runs.",
   }),
 
   // discover — search Apify Store
   query: Type.Optional(
     Type.String({
       description:
-        "Keywords to search the Apify Store (e.g. 'amazon price scraper'). Used when action='discover' to find relevant actors.",
+        "Keywords to search the Apify Store (e.g. 'amazon price scraper'). Used when action='discover' to find relevant Actors.",
     }),
   ),
 
-  // discover — fetch actor schema, also used by start
+  // discover — fetch Actor schema, also used by start
   actorId: Type.Optional(
     Type.String({
       description:
         "Actor ID or slug (e.g. 'apify~google-search-scraper' or 'compass~crawler-google-places'). " +
-        "When action='discover': fetches the actor's input schema. " +
-        "When action='start': the actor to run.",
+        "When action='discover': fetches the Actor's input schema. " +
+        "When action='start': the Actor to run.",
     }),
   ),
 
@@ -72,7 +71,7 @@ const ApifyScraperSchema = Type.Object({
   input: Type.Optional(
     Type.Record(Type.String(), Type.Unknown(), {
       description:
-        "JSON input for the actor. Use action='discover' with actorId first to know what parameters the actor accepts.",
+        "JSON input for the Actor. Use action='discover' with actorId first to know what parameters the Actor accepts.",
     }),
   ),
   label: Type.Optional(
@@ -90,66 +89,52 @@ const ApifyScraperSchema = Type.Object({
 });
 
 // ---------------------------------------------------------------------------
-// Discover action — synchronous (metadata calls, no actor runs)
+// Discover action — synchronous (metadata calls, no Actor runs)
 // ---------------------------------------------------------------------------
-
-interface ApifyStoreActor {
-  id: string;
-  name: string;
-  username: string;
-  title: string;
-  description?: string;
-  stats?: { totalRuns?: number };
-  currentPricingInfo?: { pricingModel?: string };
-}
 
 async function handleDiscover(params: {
   query?: string;
   actorId?: string;
-  apiKey: string;
-  baseUrl: string;
+  client: ApifyClient;
 }): Promise<Record<string, unknown>> {
-  const { query, actorId, apiKey, baseUrl } = params;
+  const { query, actorId, client } = params;
 
   if (!query && !actorId) {
     throw new ToolInputError(
-      "action='discover' requires either 'query' (to search the Apify Store) or 'actorId' (to fetch an actor's input schema).",
+      "action='discover' requires either 'query' (to search the Apify Store) or 'actorId' (to fetch an Actor's input schema).",
     );
   }
 
-  // Fetch actor schema when actorId provided
+  // Fetch Actor schema when actorId provided
   if (actorId) {
-    // Use builds/default to get inputSchema (JSON string) and readme (markdown)
-    const result = await apifyFetch<{ data: { inputSchema: string; readme: string } & Record<string, unknown> }>({
-      path: `/v2/acts/${encodeURIComponent(actorId)}/builds/default`,
-      apiKey,
-      baseUrl,
-      errorPrefix: `Failed to fetch actor '${actorId}'`,
-    });
-    const data = result.data;
+    const buildClient = await client.actor(actorId).defaultBuild();
+    const build = await buildClient.get();
+    if (!build) {
+      throw new ToolInputError(`No build found for Actor '${actorId}'. Check the Actor ID.`);
+    }
+    const actorDef = build.actorDefinition;
+    // inputSchema: prefer actorDefinition.input (object), fall back to build.inputSchema (deprecated JSON string)
+    const inputSchema = actorDef?.input
+      ? JSON.stringify(actorDef.input)
+      : (build.inputSchema ?? null);
+    const readme = actorDef?.readme ?? build.readme ?? null;
+    const actorInfo = await client.actor(actorId).get();
     return {
       action: "discover",
       actorId,
-      name: str(data.name),
-      title: str(data.title),
-      username: str(data.username),
-      description: str(data.description),
-      inputSchema: data.inputSchema ?? null,
-      readme: data.readme ? (data.readme as string).slice(0, 3000) : null,
-      tip: `Use action='start' with actorId='${str(data.username)}~${str(data.name)}' and the input parameters from inputSchema.`,
+      name: actorInfo?.name ?? "",
+      title: actorInfo?.title ?? "",
+      username: actorInfo?.username ?? "",
+      description: actorInfo?.description ?? "",
+      inputSchema,
+      readme: readme ? String(readme).slice(0, 3000) : null,
+      tip: `Use action='start' with actorId='${actorInfo?.username ?? ""}~${actorInfo?.name ?? ""}' and the input parameters from inputSchema.`,
     };
   }
 
   // Search Apify Store
-  const encoded = encodeURIComponent(query!);
-  const result = await apifyFetch<{ data: { items: ApifyStoreActor[] } }>({
-    path: `/v2/store?search=${encoded}&limit=10&sortBy=relevance`,
-    apiKey,
-    baseUrl,
-    errorPrefix: "Failed to search Apify Store",
-  });
-
-  const actors = result.data?.items ?? [];
+  const storeResult = await client.store().list({ search: query!, limit: 10, sortBy: "relevance" });
+  const actors = storeResult.items ?? [];
   const lines: string[] = [`## Apify Store results for: "${query}"`, ""];
 
   for (const actor of actors) {
@@ -165,7 +150,7 @@ async function handleDiscover(params: {
   }
 
   lines.push(
-    `Tip: Use action='discover' with actorId='<ID>' to fetch the actor's input schema, then action='start' to run it.`,
+    `Tip: Use action='discover' with actorId='<ID>' to fetch the Actor's input schema, then action='start' to run it.`,
   );
 
   return {
@@ -184,15 +169,9 @@ async function handleStart(params: {
   actorId: string;
   input: Record<string, unknown>;
   label?: string;
-  apiKey: string;
-  baseUrl: string;
+  client: ApifyClient;
 }): Promise<Record<string, unknown>> {
-  const run = await startApifyActorRun({
-    actorId: params.actorId,
-    input: params.input,
-    apiKey: params.apiKey,
-    baseUrl: params.baseUrl,
-  });
+  const run = await params.client.actor(params.actorId).start(params.input);
 
   return {
     action: "start",
@@ -215,8 +194,7 @@ async function handleStart(params: {
 
 async function handleCollect(params: {
   runs: Record<string, unknown>[];
-  apiKey: string;
-  baseUrl: string;
+  client: ApifyClient;
   cacheTtlMs: number;
 }): Promise<Record<string, unknown>> {
   if (!params.runs?.length) {
@@ -236,25 +214,21 @@ async function handleCollect(params: {
         return { ...cached.value, cached: true };
       }
 
-      const runStatus = await getApifyRunStatus({
-        runId,
-        apiKey: params.apiKey,
-        baseUrl: params.baseUrl,
-      });
-
-      if (!TERMINAL_STATUSES.has(runStatus.status)) {
-        return { actorId, runId, status: runStatus.status, pending: true, ...(label ? { label } : {}) } as Record<string, unknown>;
+      const runInfo = await params.client.run(runId).get();
+      if (!runInfo) {
+        return { actorId, runId, status: "UNKNOWN", error: "Run not found", ...(label ? { label } : {}) } as Record<string, unknown>;
       }
 
-      if (runStatus.status !== "SUCCEEDED") {
-        return { actorId, runId, status: runStatus.status, error: `Run ended with status: ${runStatus.status}`, ...(label ? { label } : {}) } as Record<string, unknown>;
+      if (!TERMINAL_STATUSES.has(runInfo.status)) {
+        return { actorId, runId, status: runInfo.status, pending: true, ...(label ? { label } : {}) } as Record<string, unknown>;
       }
 
-      const items = await getApifyDatasetItems({
-        datasetId,
-        apiKey: params.apiKey,
-        baseUrl: params.baseUrl,
-      });
+      if (runInfo.status !== "SUCCEEDED") {
+        return { actorId, runId, status: runInfo.status, error: `Run ended with status: ${runInfo.status}`, ...(label ? { label } : {}) } as Record<string, unknown>;
+      }
+
+      const dataset = await params.client.dataset(datasetId).listItems();
+      const items = dataset.items;
 
       const rawText = truncateResults(JSON.stringify(items, null, 2));
       const wrapped = wrapExternalContent(rawText, {
@@ -310,18 +284,18 @@ async function handleCollect(params: {
 // Tool factory
 // ---------------------------------------------------------------------------
 
-const TOOL_DESCRIPTION = `Universal Apify actor runner for web scraping and data extraction.
+const TOOL_DESCRIPTION = `Universal Apify Actor runner for web scraping and data extraction.
 
 WORKFLOW:
-1. action="start" + actorId + input → fires the actor run, returns runId/datasetId
+1. action="start" + actorId + input → fires the Actor run, returns runId/datasetId
 2. action="collect" + runs=[...] → polls status, returns results when done
-3. action="discover" + actorId → fetch input schema + README (use when you need to know what params an actor accepts)
-4. action="discover" + query → search Apify Store for actors by keyword
+3. action="discover" + actorId → fetch input schema + README (use when you need to know what params an Actor accepts)
+4. action="discover" + query → search Apify Store for Actors by keyword
 
 Actor ID format: "username~actor-name" (tilde, NOT slash). E.g. "apify~google-search-scraper", "compass~crawler-google-places".
-Use action="discover" with actorId to get the full input schema and README from Apify before running an unfamiliar actor.
+Use action="discover" with actorId to get the full input schema and README from Apify before running an unfamiliar Actor.
 
-Domain skills (apify-market-research, apify-lead-generation, etc.) provide actor selection tables for common use cases — consult them if active, but they are optional.
+Domain skills (apify-market-research, apify-lead-generation, etc.) provide Actor selection tables for common use cases — consult them if active, but they are optional.
 
 ## Known Actors
 
@@ -426,6 +400,8 @@ EXAMPLES:
 
 export function createApifyScraperTool(options?: {
   pluginConfig?: Record<string, unknown>;
+  /** Inject a client for testing. When omitted, a real ApifyClient is created. */
+  client?: ApifyClient;
 }): AnyAgentTool | null {
   const config = parsePluginConfig(options?.pluginConfig);
   const apiKey = resolveApiKey(config);
@@ -434,6 +410,7 @@ export function createApifyScraperTool(options?: {
 
   const baseUrl = resolveBaseUrl(config);
   const cacheTtlMs = resolveCacheTtlMs(config.cacheTtlMinutes, DEFAULT_CACHE_TTL_MINUTES);
+  const client = options?.client ?? createApifyClient(apiKey!, baseUrl);
 
   return {
     label: "Apify Scraper",
@@ -457,8 +434,7 @@ export function createApifyScraperTool(options?: {
             await handleDiscover({
               query: readStringParam(typedArgs, "query"),
               actorId: readStringParam(typedArgs, "actorId"),
-              apiKey,
-              baseUrl,
+              client,
             }),
           );
         case "start": {
@@ -473,8 +449,7 @@ export function createApifyScraperTool(options?: {
               actorId,
               input,
               label: readStringParam(typedArgs, "label"),
-              apiKey,
-              baseUrl,
+              client,
             }),
           );
         }
@@ -482,8 +457,7 @@ export function createApifyScraperTool(options?: {
           return jsonResult(
             await handleCollect({
               runs: typedArgs.runs as Record<string, unknown>[],
-              apiKey,
-              baseUrl,
+              client,
               cacheTtlMs,
             }),
           );

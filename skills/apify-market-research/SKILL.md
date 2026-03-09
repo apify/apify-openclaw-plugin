@@ -5,7 +5,7 @@ description: Analyze market conditions, geographic opportunities, pricing, consu
 
 # Market Research
 
-Use the `apify_scraper` tool. Select the best actor from the table below and run it with `action="start"`. Use `action="discover"` with the actor ID first if you need to see the full input schema.
+Use the `apify_scraper` tool. Select the best Actor from the table below and run it with `action="start"`. Use `action="discover"` with the Actor ID first if you need to see the full input schema.
 
 ## Actor Selection
 

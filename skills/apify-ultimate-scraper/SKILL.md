@@ -26,19 +26,19 @@ AI-driven data extraction from 57+ Actors across all major platforms.
 ## Workflow
 
 **Option A — `apify_scraper` tool (preferred):**
-1. Pick the best actor from the tables below
+1. Pick the best Actor from the tables below
 2. `action="discover"` + `actorId` → fetch input schema + README (when you need param details)
 3. `action="start"` + `actorId` + `input` → fire the run
 4. `action="collect"` + `runs` → get results
 
 **Option B — mcpc CLI (alternative, requires mcpc installed):**
 
-Search for actors:
+Search for Actors:
 ```bash
 mcpc --json mcp.apify.com --header "Authorization: Bearer $APIFY_TOKEN" tools-call search-actors keywords:="SEARCH_KEYWORDS" limit:=10 offset:=0 category:=""
 ```
 
-Fetch actor schema:
+Fetch Actor schema:
 ```bash
 mcpc --json mcp.apify.com --header "Authorization: Bearer $APIFY_TOKEN" tools-call fetch-actor-details actor:="ACTOR_ID"
 ```
@@ -164,7 +164,7 @@ Apify Actors only scrape publicly available data. For additional assurance, chec
 
 ## Error Handling
 
-`Actor not found` — Check actor ID spelling and use `~` separator (not `/`)
+`Actor not found` — Check Actor ID spelling and use `~` separator (not `/`)
 `Run FAILED` — Check Apify console link in error output
 `missing_api_key` — Run `openclaw apify setup` to configure your API key
 `mcpc not found` — Run `npm install -g @apify/mcpc`
