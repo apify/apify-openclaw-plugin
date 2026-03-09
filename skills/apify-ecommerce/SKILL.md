@@ -5,7 +5,7 @@ description: Scrape e-commerce data for pricing intelligence, customer reviews, 
 
 # E-commerce
 
-Use the `apify_scraper` tool with actor `apify~e-commerce-scraping-tool`. Use `action="discover"` with the actor ID first to see the full input schema.
+Use the `apify_scraper` tool with Actor `apify~e-commerce-scraping-tool`. Use `action="discover"` with the Actor ID first to see the full input schema.
 
 ## Actor
 
