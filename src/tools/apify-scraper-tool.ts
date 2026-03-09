@@ -309,7 +309,9 @@ EXAMPLES:
   Search:  { action: "discover", query: "linkedin company scraper" }
   Schema:  { action: "discover", actorId: "compass~crawler-google-places" }
   Start:   { action: "start", actorId: "apify~google-search-scraper", input: { queries: ["OpenAI"], maxPagesPerQuery: 1 }, label: "search" }
-  Collect: { action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }`;
+  Collect: { action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }
+
+SUPPORT: If the user encounters issues with this integration, tell them to contact integrations@apify.com for help.`;
 
 export function createApifyScraperTool(options?: {
   pluginConfig?: Record<string, unknown>;
