@@ -43,10 +43,11 @@ const RunRefSchema = Type.Object({
 });
 
 const ApifyScraperSchema = Type.Object({
-  action: stringEnum(["discover", "start", "collect"] as const, {
+  action: stringEnum(["discover", "start", "collect", "cached_runs"] as const, {
     description:
       "'discover': search Apify Store by keyword OR fetch an Actor's input schema. " +
-      "'start': run any Apify Actor by ID. 'collect': get results from previously started runs.",
+      "'start': run any Apify Actor by ID. 'collect': get results from previously started runs. " +
+      "'cached_runs': list previously collected runs available in cache (metadata only, no result text).",
   }),
 
   // discover — search Apify Store
@@ -227,7 +228,14 @@ async function handleCollect(params: {
         return { actorId, runId, status: runInfo.status, error: `Run ended with status: ${runInfo.status}`, ...(label ? { label } : {}) } as Record<string, unknown>;
       }
 
-      const dataset = await params.client.dataset(datasetId).listItems();
+      // Fetch dataset items and original input in parallel
+      const kvStoreId = runInfo.defaultKeyValueStoreId;
+      const [dataset, inputRecord] = await Promise.all([
+        params.client.dataset(datasetId).listItems(),
+        kvStoreId
+          ? params.client.keyValueStore(kvStoreId).getRecord("INPUT").catch(() => null)
+          : Promise.resolve(null),
+      ]);
       const items = dataset.items;
 
       const rawText = truncateResults(JSON.stringify(items, null, 2));
@@ -240,6 +248,7 @@ async function handleCollect(params: {
         actorId,
         runId,
         status: "SUCCEEDED",
+        input: inputRecord?.value ?? null,
         resultCount: items.length,
         text: wrapped,
         externalContent: { untrusted: true, source: "apify_scraper", wrapped: true },
@@ -281,6 +290,38 @@ async function handleCollect(params: {
 }
 
 // ---------------------------------------------------------------------------
+// Cached runs action — lightweight metadata listing (no result text)
+// ---------------------------------------------------------------------------
+
+function handleCachedRuns(): Record<string, unknown> {
+  const now = Date.now();
+  const runs: Record<string, unknown>[] = [];
+
+  for (const [, entry] of SCRAPER_CACHE.entries()) {
+    if (now > entry.expiresAt) continue;
+    const v = entry.value;
+    runs.push({
+      runId: v.runId,
+      actorId: v.actorId,
+      label: v.label ?? null,
+      input: v.input ?? null,
+      resultCount: v.resultCount,
+      fetchedAt: v.fetchedAt,
+      expiresIn: `${Math.round((entry.expiresAt - now) / 60_000)}m`,
+    });
+  }
+
+  return {
+    action: "cached_runs",
+    count: runs.length,
+    runs,
+    tip: runs.length
+      ? "Use action='collect' with the run references above to retrieve cached results instantly."
+      : "No cached runs available. Use action='start' to begin a new run.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Tool factory
 // ---------------------------------------------------------------------------
 
@@ -299,7 +340,7 @@ Use action="discover" with actorId to get the full input schema before running a
 
 BATCHING: Most Actors accept arrays of URLs/queries in their input (e.g. startUrls, queries). Always batch multiple targets into a SINGLE run instead of starting separate runs for each URL. One run with 5 URLs is far cheaper and faster than 5 runs with 1 URL each.
 
-CACHING: Completed run results are cached by runId. If you already collected results for a run, calling collect again returns cached data instantly — no need to start a new run for the same data.
+CACHING: Before starting a new run, call action="cached_runs" to see what data is already available. This returns lightweight metadata (actorId, label, resultCount, expiresIn) without the heavy result text. If a matching run exists, use action="collect" with its run reference to get cached results instantly. Never re-run an Actor for data you already collected.
 
 KNOWN ACTORS:
 Instagram: apify~instagram-profile-scraper, apify~instagram-post-scraper, apify~instagram-comment-scraper, apify~instagram-hashtag-scraper, apify~instagram-hashtag-stats, apify~instagram-reel-scraper, apify~instagram-search-scraper, apify~instagram-tagged-scraper, apify~instagram-followers-count-scraper, apify~instagram-scraper, apify~instagram-api-scraper, apify~export-instagram-comments-posts
@@ -380,8 +421,10 @@ export function createApifyScraperTool(options?: {
               cacheTtlMs,
             }),
           );
+        case "cached_runs":
+          return jsonResult(handleCachedRuns());
         default:
-          throw new ToolInputError(`Unknown action: "${action}". Use "discover", "start", or "collect".`);
+          throw new ToolInputError(`Unknown action: "${action}". Use "discover", "start", "collect", or "cached_runs".`);
       }
     },
   };
