@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that provides web scraping and data extraction via Apify's API. It registers **1 agent tool** (`apify_scraper`) — a universal scraper with 4 actions: `discover`, `start`, `collect`, and `cached_runs`.
+This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that provides web scraping and data extraction via Apify's API. It registers **1 agent tool** (`apify_scraper`) — a universal scraper with 3 actions: `discover`, `start`, and `collect`.
 
 - **Upstream repo:** https://github.com/openclaw/openclaw
 - **Plugin docs:** https://docs.openclaw.ai/plugins/community
@@ -30,7 +30,7 @@ package.json                  # npm package config
 
 ## The `apify_scraper` Tool
 
-Single tool with 4 actions:
+Single tool with 3 actions:
 
 | Action | Purpose |
 |--------|---------|
@@ -38,14 +38,13 @@ Single tool with 4 actions:
 | `discover` + `actorId` | Fetch actor's input schema + README |
 | `start` + `actorId` + `input` | Fire an actor run, returns runId/datasetId |
 | `collect` + `runs` | Poll status, return results for completed runs |
-| `cached_runs` | List cached run metadata (no result text) — actorId, label, input, resultCount, expiresIn |
 
 ### Tool Description Guidance
 
 The tool description includes instructions for the agent:
 - **Sub-agent delegation:** Tool should be used by a sub-agent that returns only relevant extracted data, not raw dumps.
 - **Batching:** Batch multiple URLs into a single run (e.g. `startUrls: [{url: "..."}, ...]`).
-- **Caching:** Call `cached_runs` first to check for reusable data before starting new runs.
+- **Caching:** Every response auto-includes a `previousRuns` field with a compact summary of cached scrape results. The agent should evaluate this before starting new runs.
 - **Known actors:** Compact comma-separated list of 57 actors across Instagram, Facebook, TikTok, YouTube, Google Maps, and more.
 - **Support:** Directs users to integrations@apify.com for issues.
 
@@ -54,11 +53,11 @@ The tool description includes instructions for the agent:
 - **In-memory `Map<string, CacheEntry>`** keyed by `apify-scraper:run:<runId>`.
 - Default TTL: 15 minutes. Configurable via `cacheTtlMinutes`. Max 100 entries (LRU eviction).
 - At collect time, the original run input is fetched from `keyValueStore(kvStoreId).getRecord("INPUT")` in parallel with dataset items and stored in the cache payload.
-- `cached_runs` action reads from the cache and returns metadata only (no result text), so the agent can check what's available without context bloat.
+- **Auto-injected `previousRuns`:** Every tool response includes a compact summary of cached runs (actor, result count, input, run/dataset IDs, expiry). Expired entries are auto-purged. Last 10 entries shown.
 
 ## Key Architecture Decisions
 
-- **Single tool, multiple actions:** All scraping goes through `apify_scraper` with `discover`/`start`/`collect`/`cached_runs` actions.
+- **Single tool, multiple actions:** All scraping goes through `apify_scraper` with `discover`/`start`/`collect` actions.
 - **Async two-phase pattern:** `start` returns immediately with run references. `collect` polls and fetches results. The agent does other work between calls.
 - **`apify-client` SDK:** Uses the official `apify-client` npm package (not raw HTTP). Client created via `createApifyClient(apiKey, baseUrl)`.
 - **Inlined utilities (`util.ts`):** `ToolInputError`, cache helpers, and `wrapExternalContent` are NOT exported from `openclaw/plugin-sdk`. We carry local copies.
@@ -88,7 +87,7 @@ The wizard merges safely: preserves existing config, adds to `tools.alsoAllow` w
 - **Type-check:** `npx tsc --noEmit`
 - **Test:** `npx vitest run`
 - **Pack (dry run):** `npm pack --dry-run`
-- **Current state:** 1 test file, 10 tests passing.
+- **Current state:** 1 test file, 12 tests passing.
 
 ## Coding Style
 
