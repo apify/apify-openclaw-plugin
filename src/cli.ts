@@ -108,7 +108,6 @@ async function applyConfigChanges(
     config: {
       ...existingPluginConfig,
       apiKey,
-      cacheTtlMinutes: existingPluginConfig.cacheTtlMinutes ?? 15,
       maxResults: existingPluginConfig.maxResults ?? 20,
     },
   };
@@ -140,7 +139,6 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
   console.log("        enabled: true");
   console.log("        config:");
   console.log(`          apiKey: "${apiKey}"`);
-  console.log("          cacheTtlMinutes: 15");
   console.log("          maxResults: 20");
   console.log();
   console.log("  tools:");
@@ -262,7 +260,6 @@ function runStatusCommand(api: OpenClawPluginApi): void {
   console.log("\n=== Apify Plugin Status ===\n");
   console.log(`  API key:       ${apiKey ? `configured (${apiKey.slice(0, 12)}…)` : "NOT SET — run 'openclaw apify setup'"}`);
   console.log(`  Base URL:      ${baseUrl}`);
-  console.log(`  Cache TTL:     ${config.cacheTtlMinutes ?? 15} minutes`);
   console.log(`  Max results:   ${config.maxResults ?? 20} per run`);
 
   const enabledTools =

@@ -18,11 +18,6 @@
         "type": "string",
         "description": "Apify API base URL (default: https://api.apify.com)."
       },
-      "cacheTtlMinutes": {
-        "type": "number",
-        "minimum": 0,
-        "description": "Cache TTL in minutes for completed run results (default: 15)."
-      },
       "maxResults": {
         "type": "number",
         "minimum": 1,
@@ -54,10 +49,6 @@
     },
     "baseUrl": {
       "label": "API Base URL",
-      "advanced": true
-    },
-    "cacheTtlMinutes": {
-      "label": "Cache TTL (minutes)",
       "advanced": true
     },
     "maxResults": {
