@@ -3,14 +3,8 @@ import { ApifyClient } from "apify-client";
 import { jsonResult, readStringParam, stringEnum } from "openclaw/plugin-sdk";
 import type { AnyAgentTool } from "openclaw/plugin-sdk";
 import {
-  CacheEntry,
-  DEFAULT_CACHE_TTL_MINUTES,
   ToolInputError,
-  normalizeCacheKey,
-  readCache,
-  resolveCacheTtlMs,
   wrapExternalContent,
-  writeCache,
 } from "../util.js";
 import {
   createApifyClient,
@@ -22,14 +16,6 @@ import {
   truncateResults,
   TERMINAL_STATUSES,
 } from "../apify-client.js";
-
-// ---------------------------------------------------------------------------
-// Cache — stores completed run results (keyed by runId) to avoid re-fetching
-// dataset items for runs that already succeeded. TTL is configurable via
-// plugin config `cacheTtlMinutes`.
-// ---------------------------------------------------------------------------
-
-const SCRAPER_CACHE = new Map<string, CacheEntry<Record<string, unknown>>>();
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -195,7 +181,6 @@ async function handleStart(params: {
 async function handleCollect(params: {
   runs: Record<string, unknown>[];
   client: ApifyClient;
-  cacheTtlMs: number;
 }): Promise<Record<string, unknown>> {
   if (!params.runs?.length) {
     throw new ToolInputError("'collect' action requires 'runs' array.");
@@ -207,12 +192,6 @@ async function handleCollect(params: {
       const actorId = readStringParam(runRef, "actorId", { required: true });
       const datasetId = readStringParam(runRef, "datasetId", { required: true });
       const label = readStringParam(runRef, "label");
-
-      const cacheKey = normalizeCacheKey(`apify-scraper:run:${runId}`);
-      const cached = readCache(SCRAPER_CACHE, cacheKey);
-      if (cached) {
-        return { ...cached.value, cached: true };
-      }
 
       const runInfo = await params.client.run(runId).get();
       if (!runInfo) {
@@ -227,14 +206,7 @@ async function handleCollect(params: {
         return { actorId, runId, status: runInfo.status, error: `Run ended with status: ${runInfo.status}`, ...(label ? { label } : {}) } as Record<string, unknown>;
       }
 
-      // Fetch dataset items and original input in parallel
-      const kvStoreId = runInfo.defaultKeyValueStoreId;
-      const [dataset, inputRecord] = await Promise.all([
-        params.client.dataset(datasetId).listItems(),
-        kvStoreId
-          ? params.client.keyValueStore(kvStoreId).getRecord("INPUT").catch(() => null)
-          : Promise.resolve(null),
-      ]);
+      const dataset = await params.client.dataset(datasetId).listItems();
       const items = dataset.items;
 
       const rawText = truncateResults(JSON.stringify(items, null, 2));
@@ -243,21 +215,17 @@ async function handleCollect(params: {
         includeWarning: false,
       });
 
-      const payload: Record<string, unknown> = {
+      return {
         actorId,
         runId,
         datasetId,
         status: "SUCCEEDED",
-        input: inputRecord?.value ?? null,
         resultCount: items.length,
         text: wrapped,
         externalContent: { untrusted: true, source: "apify_scraper", wrapped: true },
         fetchedAt: new Date().toISOString(),
         ...(label ? { label } : {}),
-      };
-
-      writeCache(SCRAPER_CACHE, cacheKey, payload, params.cacheTtlMs);
-      return payload;
+      } as Record<string, unknown>;
     }),
   );
 
@@ -290,56 +258,6 @@ async function handleCollect(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Cache summary — auto-injected into every response
-// ---------------------------------------------------------------------------
-
-function summarizeInput(input: unknown, maxLen = 200): string {
-  if (!input || typeof input !== "object") return "(none)";
-  const obj = input as Record<string, unknown>;
-  const parts: string[] = [];
-  for (const [key, val] of Object.entries(obj)) {
-    const valStr = Array.isArray(val)
-      ? JSON.stringify(val.length > 3 ? [...val.slice(0, 3), `...+${val.length - 3}`] : val)
-      : typeof val === "object" && val !== null
-        ? JSON.stringify(val).slice(0, 50)
-        : String(val);
-    parts.push(`${key}: ${valStr}`);
-  }
-  const joined = parts.join(", ");
-  return joined.length > maxLen ? joined.slice(0, maxLen) + "..." : joined;
-}
-
-function buildCacheSummary(): string | null {
-  const now = Date.now();
-
-  // Purge expired entries
-  for (const [key, entry] of SCRAPER_CACHE.entries()) {
-    if (now > entry.expiresAt) SCRAPER_CACHE.delete(key);
-  }
-
-  if (SCRAPER_CACHE.size === 0) return null;
-
-  // Take last 10 entries by insertedAt (most recent first)
-  const entries = [...SCRAPER_CACHE.entries()]
-    .sort((a, b) => b[1].insertedAt - a[1].insertedAt)
-    .slice(0, 10);
-
-  const lines: string[] = ["--- Previous runs (use collect to retrieve) ---"];
-
-  for (const [, entry] of entries) {
-    const v = entry.value;
-    const labelPrefix = v.label ? `[${v.label}] ` : "";
-    const expires = new Date(entry.expiresAt).toISOString().replace("T", " ").slice(0, 16);
-    lines.push(
-      `• ${labelPrefix}${v.actorId} — ${v.resultCount} results (run:${v.runId}, ds:${v.datasetId ?? "unknown"}, expires ${expires})`,
-    );
-    lines.push(`  Input: ${summarizeInput(v.input)}`);
-  }
-
-  return lines.join("\n");
-}
-
-// ---------------------------------------------------------------------------
 // Tool factory
 // ---------------------------------------------------------------------------
 
@@ -357,8 +275,6 @@ Actor ID format: "username~actor-name" (tilde, NOT slash).
 Use action="discover" with actorId to get the full input schema before running an unfamiliar Actor.
 
 BATCHING: Most Actors accept arrays of URLs/queries in their input (e.g. startUrls, queries). Always batch multiple targets into a SINGLE run instead of starting separate runs for each URL. One run with 5 URLs is far cheaper and faster than 5 runs with 1 URL each.
-
-CACHING: Every response includes a "previousRuns" field summarizing cached scrape results (actor, result count, input, run/dataset IDs). Evaluate whether this data satisfies your needs before starting new runs. If it does, use action="collect" with the run/dataset IDs to retrieve cached results instantly. If the data is insufficient or doesn't match what you need, proceed with action="discover" and action="start" for additional scraping.
 
 KNOWN ACTORS:
 Instagram: apify~instagram-profile-scraper, apify~instagram-post-scraper, apify~instagram-comment-scraper, apify~instagram-hashtag-scraper, apify~instagram-hashtag-stats, apify~instagram-reel-scraper, apify~instagram-search-scraper, apify~instagram-tagged-scraper, apify~instagram-followers-count-scraper, apify~instagram-scraper, apify~instagram-api-scraper, apify~export-instagram-comments-posts
@@ -387,7 +303,6 @@ export function createApifyScraperTool(options?: {
   if (!isToolEnabled(config, "apify_scraper")) return null;
 
   const baseUrl = resolveBaseUrl(config);
-  const cacheTtlMs = resolveCacheTtlMs(config.cacheTtlMinutes, DEFAULT_CACHE_TTL_MINUTES);
   const client = options?.client ?? createApifyClient(apiKey!, baseUrl);
 
   return {
@@ -435,16 +350,10 @@ export function createApifyScraperTool(options?: {
           result = await handleCollect({
             runs: typedArgs.runs as Record<string, unknown>[],
             client,
-            cacheTtlMs,
           });
           break;
         default:
           throw new ToolInputError(`Unknown action: "${action}". Use "discover", "start", or "collect".`);
-      }
-
-      const cacheSummary = buildCacheSummary();
-      if (cacheSummary) {
-        result.previousRuns = cacheSummary;
       }
 
       return jsonResult(result);

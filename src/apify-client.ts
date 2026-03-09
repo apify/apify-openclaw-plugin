@@ -26,7 +26,6 @@ export interface ApifyPluginConfig {
   enabled?: boolean;
   apiKey?: string;
   baseUrl?: string;
-  cacheTtlMinutes?: number;
   maxResults?: number;
   enabledTools?: string[];
 }

@@ -11,7 +11,6 @@ export function makeMockClient(overrides?: {
   datasetListItems?: () => Promise<unknown>;
   storeList?: (opts?: unknown) => Promise<unknown>;
   userGet?: () => Promise<unknown>;
-  kvStoreGetRecord?: (key: string) => Promise<unknown>;
 }): ApifyClient {
   const actorStart = overrides?.actorStart ?? (async () => ({ id: "run-123", defaultDatasetId: "ds-456", status: "RUNNING" }));
   const actorGet = overrides?.actorGet ?? (async () => ({ name: "test-actor", title: "Test Actor", username: "testuser", description: "A test actor" }));
@@ -20,7 +19,6 @@ export function makeMockClient(overrides?: {
   const datasetListItems = overrides?.datasetListItems ?? (async () => ({ items: [], total: 0, count: 0, offset: 0, limit: 100, desc: false }));
   const storeList = overrides?.storeList ?? (async () => ({ items: [], total: 0, count: 0, offset: 0, limit: 10, desc: false }));
   const userGet = overrides?.userGet ?? (async () => ({ username: "testuser", profile: {} }));
-  const kvStoreGetRecord = overrides?.kvStoreGetRecord ?? (async () => null);
 
   return {
     actor: () => ({
@@ -36,9 +34,6 @@ export function makeMockClient(overrides?: {
     dataset: () => ({
       listItems: datasetListItems,
     }),
-    keyValueStore: () => ({
-      getRecord: kvStoreGetRecord,
-    }),
     store: () => ({
       list: storeList,
     }),
@@ -48,12 +43,7 @@ export function makeMockClient(overrides?: {
   } as unknown as ApifyClient;
 }
 
-/** Tool plugin config with a test API key (caching disabled). */
+/** Tool plugin config with a test API key. */
 export const TEST_CONFIG = {
-  pluginConfig: { apiKey: "test-key", cacheTtlMinutes: 0 },
-};
-
-/** Tool plugin config with caching enabled. */
-export const TEST_CONFIG_WITH_CACHE = {
-  pluginConfig: { apiKey: "test-key", cacheTtlMinutes: 15 },
+  pluginConfig: { apiKey: "test-key" },
 };
