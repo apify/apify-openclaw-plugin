@@ -3,7 +3,7 @@ import { createApifyScraperTool } from "./tools/apify-scraper-tool.js";
 import { registerCli } from "./cli.js";
 
 export default {
-  id: "apify-openclaw-integration",
+  id: "apify",
   name: "Apify",
   description:
     "Web scraping and data extraction via Apify — scrape any platform using 57+ actors across social media, maps, search, e-commerce, and more.",

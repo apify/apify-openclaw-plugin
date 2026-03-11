@@ -1,5 +1,5 @@
 {
-  "id": "apify-openclaw-integration",
+  "id": "apify",
   "name": "Apify",
   "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ Actors across social media, maps, search, e-commerce, and more.",
   "configSchema": {
@@ -28,7 +28,7 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["apify_scraper"]
+          "enum": ["apify"]
         },
         "description": "Which tools to register (default: all tools enabled)."
       }

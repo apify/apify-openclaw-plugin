@@ -75,7 +75,7 @@ function getBaseUrl(api: OpenClawPluginApi): string {
 }
 
 const ALL_TOOLS: { name: string; desc: string }[] = [
-  { name: "apify_scraper", desc: "Universal scraper — any Apify Actor (57+ Actors)" },
+  { name: "apify", desc: "Universal scraper — any Apify Actor (15k+ Actors)" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -97,12 +97,12 @@ async function applyConfigChanges(
   // Merge plugin entry
   if (!cfg.plugins) cfg.plugins = {};
   if (!cfg.plugins.entries) cfg.plugins.entries = {};
-  const existing = cfg.plugins.entries["apify-openclaw-integration"] ?? {};
+  const existing = cfg.plugins.entries["apify"] ?? {};
   const existingPluginConfig =
     typeof existing.config === "object" && existing.config !== null
       ? (existing.config as Record<string, unknown>)
       : {};
-  cfg.plugins.entries["apify-openclaw-integration"] = {
+  cfg.plugins.entries["apify"] = {
     ...existing,
     enabled: true,
     config: {
@@ -135,7 +135,7 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
   console.log("  Add this to your OpenClaw config:\n");
   console.log("  plugins:");
   console.log("    entries:");
-  console.log("      apify-openclaw-integration:");
+  console.log("      apify:");
   console.log("        enabled: true");
   console.log("        config:");
   console.log(`          apiKey: "${apiKey}"`);
