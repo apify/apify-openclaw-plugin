@@ -75,7 +75,7 @@ function getBaseUrl(api: OpenClawPluginApi): string {
 }
 
 const ALL_TOOLS: { name: string; desc: string }[] = [
-  { name: "apify_scraper", desc: "Universal scraper — any Apify Actor (57+ Actors)" },
+  { name: "apify", desc: "Universal scraper — any Apify Actor (15k+ Actors)" },
 ];
 
 // ---------------------------------------------------------------------------

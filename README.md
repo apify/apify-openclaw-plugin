@@ -12,7 +12,7 @@ Restart the Gateway after installation.
 
 ## How it works
 
-The plugin registers a single tool — `apify_scraper` — with three actions:
+The plugin registers a single tool — `apify` — with three actions:
 
 | Action | Purpose |
 |--------|---------|
@@ -47,7 +47,7 @@ The tool uses a **two-phase async pattern**: `start` fires off a run and returns
   },
   // Make the tool available to agents:
   tools: {
-    alsoAllow: ["apify_scraper"],   // or "apify" or "group:plugins"
+    alsoAllow: ["apify"],   // or "apify" or "group:plugins"
   },
 }
 ```
@@ -58,7 +58,7 @@ Or use the interactive setup wizard:
 openclaw apify setup
 ```
 
-## apify_scraper
+## apify
 
 ### Workflow
 
@@ -94,19 +94,19 @@ Most Actors accept arrays of URLs/queries in their input (e.g., `startUrls`, `qu
 
 ```javascript
 // 1. Search the Apify Store
-const search = await apify_scraper({
+const search = await apify({
   action: "discover",
   query: "linkedin company scraper",
 });
 
 // 2. Get an Actor's input schema
-const schema = await apify_scraper({
+const schema = await apify({
   action: "discover",
   actorId: "compass~crawler-google-places",
 });
 
 // 3. Start a Google Search scrape
-const started = await apify_scraper({
+const started = await apify({
   action: "start",
   actorId: "apify~google-search-scraper",
   input: { queries: ["OpenAI", "Anthropic"], maxPagesPerQuery: 1 },
@@ -115,21 +115,21 @@ const started = await apify_scraper({
 // -> { runs: [{ runId, actorId, datasetId, status }] }
 
 // 4. Collect results
-const results = await apify_scraper({
+const results = await apify({
   action: "collect",
   runs: started.runs,
 });
 // -> { completed: [...], pending: [...] }
 
 // Instagram profile scraping
-await apify_scraper({
+await apify({
   action: "start",
   actorId: "apify~instagram-profile-scraper",
   input: { usernames: ["natgeo", "nasa"] },
 });
 
 // TikTok search
-await apify_scraper({
+await apify({
   action: "start",
   actorId: "clockworks~tiktok-scraper",
   input: { searchQueries: ["AI tools"], resultsPerPage: 20 },
@@ -138,7 +138,7 @@ await apify_scraper({
 
 ### Sub-agent delegation
 
-The tool description instructs agents to delegate `apify_scraper` calls to a sub-agent. The sub-agent handles the full discover → start → collect workflow and returns only the relevant extracted data — not raw API responses or run metadata.
+The tool description instructs agents to delegate `apify` calls to a sub-agent. The sub-agent handles the full discover → start → collect workflow and returns only the relevant extracted data — not raw API responses or run metadata.
 
 ## Security
 

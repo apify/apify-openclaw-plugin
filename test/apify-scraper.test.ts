@@ -2,15 +2,15 @@ import { describe, it, expect } from "vitest";
 import { createApifyScraperTool } from "../src/tools/apify-scraper-tool.js";
 import { makeMockClient, TEST_CONFIG } from "./helpers.js";
 
-describe("apify_scraper tool", () => {
+describe("apify tool", () => {
   it("returns null when no API key", () => {
     expect(createApifyScraperTool({ pluginConfig: {} })).toBeNull();
   });
 
   it("registers with correct name", () => {
     const tool = createApifyScraperTool({ ...TEST_CONFIG, client: makeMockClient() });
-    expect(tool!.name).toBe("apify_scraper");
-    expect(tool!.label).toBe("Apify Scraper");
+    expect(tool!.name).toBe("apify");
+    expect(tool!.label).toBe("Apify");
   });
 
   it("discover action — store search", async () => {
@@ -121,7 +121,7 @@ describe("apify_scraper tool", () => {
     await expect(tool.execute("t1", { action: "unknown" })).rejects.toThrow();
   });
 
-  it("returns null when apify_scraper is excluded from enabledTools", () => {
+  it("returns null when apify is excluded from enabledTools", () => {
     const tool = createApifyScraperTool({
       pluginConfig: { apiKey: "test-key", enabledTools: ["other_tool"] as string[] },
     });

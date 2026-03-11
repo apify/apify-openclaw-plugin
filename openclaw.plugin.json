@@ -28,7 +28,7 @@
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["apify_scraper"]
+          "enum": ["apify"]
         },
         "description": "Which tools to register (default: all tools enabled)."
       }

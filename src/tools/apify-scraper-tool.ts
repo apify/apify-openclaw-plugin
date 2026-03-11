@@ -211,7 +211,7 @@ async function handleCollect(params: {
 
       const rawText = truncateResults(JSON.stringify(items, null, 2));
       const wrapped = wrapExternalContent(rawText, {
-        source: `apify_scraper:${actorId}`,
+        source: `apify:${actorId}`,
         includeWarning: false,
       });
 
@@ -222,7 +222,7 @@ async function handleCollect(params: {
         status: "SUCCEEDED",
         resultCount: items.length,
         text: wrapped,
-        externalContent: { untrusted: true, source: "apify_scraper", wrapped: true },
+        externalContent: { untrusted: true, source: "apify", wrapped: true },
         fetchedAt: new Date().toISOString(),
         ...(label ? { label } : {}),
       } as Record<string, unknown>;
@@ -300,14 +300,14 @@ export function createApifyScraperTool(options?: {
   const config = parsePluginConfig(options?.pluginConfig);
   const apiKey = resolveApiKey(config);
   if (!resolveEnabled({ config, apiKey })) return null;
-  if (!isToolEnabled(config, "apify_scraper")) return null;
+  if (!isToolEnabled(config, "apify")) return null;
 
   const baseUrl = resolveBaseUrl(config);
   const client = options?.client ?? createApifyClient(apiKey!, baseUrl);
 
   return {
-    label: "Apify Scraper",
-    name: "apify_scraper",
+    label: "Apify",
+    name: "apify",
     description: TOOL_DESCRIPTION,
     parameters: ApifyScraperSchema,
     execute: async (_toolCallId, args) => {
