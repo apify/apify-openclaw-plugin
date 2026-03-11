@@ -1,14 +1,14 @@
 {
   "id": "apify-openclaw-integration",
-  "name": "Apify Social Scraper",
-  "description": "Social media scraping via Apify (Instagram, TikTok, YouTube, LinkedIn)",
+  "name": "Apify",
+  "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ Actors across social media, maps, search, e-commerce, and more.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {
       "enabled": {
         "type": "boolean",
-        "description": "Enable social scraping tool (default: true when apiKey is set)."
+        "description": "Enable the Apify plugin (default: true when apiKey is set)."
       },
       "apiKey": {
         "type": "string",
@@ -18,24 +18,19 @@
         "type": "string",
         "description": "Apify API base URL (default: https://api.apify.com)."
       },
-      "cacheTtlMinutes": {
-        "type": "number",
-        "minimum": 0,
-        "description": "Cache TTL in minutes (default: 15)."
-      },
       "maxResults": {
         "type": "number",
         "minimum": 1,
-        "maximum": 100,
-        "description": "Max results default (default: 20)."
+        "maximum": 1000,
+        "description": "Default max results per Actor run (default: 20)."
       },
-      "allowedPlatforms": {
+      "enabledTools": {
         "type": "array",
         "items": {
           "type": "string",
-          "enum": ["instagram", "tiktok", "youtube", "linkedin"]
+          "enum": ["apify_scraper"]
         },
-        "description": "Platforms the user has enabled (default: all)."
+        "description": "Which tools to register (default: all tools enabled)."
       }
     }
   },
@@ -43,24 +38,21 @@
     "apiKey": {
       "label": "Apify API Key",
       "sensitive": true,
-      "help": "Get one at https://console.apify.com/"
+      "help": "Get one at https://console.apify.com/settings/integrations"
     },
     "enabled": {
-      "label": "Enable Social Scraping"
+      "label": "Enable Apify Plugin"
     },
-    "baseUrl": {
-      "label": "Apify API Base URL",
+    "enabledTools": {
+      "label": "Enabled Tools",
       "advanced": true
     },
-    "cacheTtlMinutes": {
-      "label": "Cache TTL (minutes)",
+    "baseUrl": {
+      "label": "API Base URL",
       "advanced": true
     },
     "maxResults": {
       "label": "Default Max Results"
-    },
-    "allowedPlatforms": {
-      "label": "Allowed Platforms"
     }
   }
 }

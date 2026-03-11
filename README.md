@@ -1,6 +1,6 @@
-# Apify Social Scraper Plugin for OpenClaw
+# Apify Plugin for OpenClaw
 
-Social media scraping via [Apify](https://apify.com) (Instagram, TikTok, YouTube, LinkedIn).
+Universal web scraping and data extraction via [Apify](https://apify.com) — 57+ Actors across Instagram, Facebook, TikTok, YouTube, Google Maps, Google Search, e-commerce, and more.
 
 ## Install
 
@@ -12,16 +12,22 @@ Restart the Gateway after installation.
 
 ## How it works
 
-- `social_platforms` uses a two-phase async pattern: **start** fires off scraping jobs concurrently, **collect** fetches results.
-- Results are cached by run ID for 15 minutes (configurable).
-- Requires `APIFY_API_KEY` env var or `apiKey` in plugin config.
-- Prefer `social_platforms` over `web_fetch` for social media URLs.
+The plugin registers a single tool — `apify_scraper` — with three actions:
+
+| Action | Purpose |
+|--------|---------|
+| `discover` + `query` | Search the Apify Store for Actors by keyword |
+| `discover` + `actorId` | Fetch an Actor's input schema + README |
+| `start` + `actorId` + `input` | Run any Apify Actor, returns `runId` / `datasetId` |
+| `collect` + `runs` | Poll status and return results for completed runs |
+
+The tool uses a **two-phase async pattern**: `start` fires off a run and returns immediately. `collect` fetches results when the run completes. The agent does other work in between.
 
 ## Get an API key
 
 1. Create an Apify account at [https://console.apify.com/](https://console.apify.com/)
-2. Generate an API token in Account Settings.
-3. Store it in plugin config or set `APIFY_API_KEY` in the gateway environment.
+2. Generate an API token in Account Settings → Integrations.
+3. Store it in plugin config or set the `APIFY_API_KEY` environment variable.
 
 ## Configure
 
@@ -31,255 +37,114 @@ Restart the Gateway after installation.
     entries: {
       "apify-openclaw-integration": {
         config: {
-          apiKey: "APIFY_API_KEY_HERE", // optional if APIFY_API_KEY env var is set
-          enabled: true,
+          apiKey: "apify_api_...",     // optional if APIFY_API_KEY env var is set
           baseUrl: "https://api.apify.com",
-          cacheTtlMinutes: 15,
           maxResults: 20,
-          allowedPlatforms: ["instagram", "tiktok", "youtube", "linkedin"],
+          enabledTools: [],           // empty = all tools enabled
         },
       },
     },
   },
   // Make the tool available to agents:
   tools: {
-    alsoAllow: ["social_platforms"], // or "apify-openclaw-integration" or "group:plugins"
+    alsoAllow: ["apify_scraper"],   // or "apify-openclaw-integration" or "group:plugins"
   },
 }
 ```
 
-Notes:
+Or use the interactive setup wizard:
 
-- `enabled` defaults to true when an API key is present.
-- `allowedPlatforms` controls which platforms are available (default: all four).
-- `maxResults` sets the default result limit (default: 20, max: 100).
+```bash
+openclaw apify setup
+```
 
-## social_platforms
+## apify_scraper
 
-### Requirements
+### Workflow
 
-- Plugin must be enabled (default: enabled when apiKey is set)
-- Apify API key: plugin config `apiKey` or `APIFY_API_KEY` env var
+```
+discover (search) → discover (schema) → start → collect
+```
 
-### Two-phase async pattern
+1. **Search** — Find Actors: `{ action: "discover", query: "amazon price scraper" }`
+2. **Schema** — Get input params: `{ action: "discover", actorId: "apify~google-search-scraper" }`
+3. **Start** — Run the Actor: `{ action: "start", actorId: "apify~google-search-scraper", input: { queries: ["OpenAI"] } }`
+4. **Collect** — Get results: `{ action: "collect", runs: [{ runId: "...", actorId: "...", datasetId: "..." }] }`
 
-1. **Start**: Call with `action: "start"` and a `requests` array to fire off scraping jobs concurrently. Returns immediately with run IDs.
-2. **Collect**: Call with `action: "collect"` and the `runs` array from the start response to fetch results. Repeat if some runs are still pending.
+### Actor ID format
 
-### Tool parameters
+Actor IDs use the `username~actor-name` format (tilde separator, not slash).
 
-#### Start action
+### Known Actors
 
-- `action` (required): `"start"`
-- `requests` (required): Array of request objects, each with:
-  - `platform` (required): `"instagram"`, `"tiktok"`, `"youtube"`, or `"linkedin"`
-  - Platform-specific parameters (see below)
-  - `maxResults` (optional): Maximum results to return (1-100, default: 20)
-  - `actorInput` (optional): Object with additional Actor-specific input parameters (see platform options below)
+The tool description includes 57+ known Actors across these categories:
 
-#### Collect action
+- **Instagram** — profiles, posts, comments, hashtags, reels, search, followers, tagged posts
+- **Facebook** — pages, posts, comments, likes, reviews, groups, events, ads, reels, photos, marketplace
+- **TikTok** — search, profiles, videos, comments, followers, hashtags, sounds, ads, trends, live
+- **YouTube** — search, channels, comments, shorts, video-by-hashtag
+- **Google Maps** — places, reviews, email extraction
+- **Other** — Google Search, Google Trends, Booking.com, TripAdvisor, contact info, e-commerce
 
-- `action` (required): `"collect"`
-- `runs` (required): Array of `{ runId, platform, datasetId, linkedinAction? }` objects from the start response
+### Batching
 
-### Platform parameters
-
-#### Instagram
-
-- `instagramMode` (required): `"url"` or `"search"`
-- `instagramType` (required):
-  - URL mode: `"posts"`, `"comments"`, `"mentions"`, `"urls"`
-  - Search mode: `"hashtags"`, `"places"`, `"users"`
-- URL mode requires `urls`, search mode requires `queries`
-
-**actorInput options:**
-
-- `resultsType`: what to scrape -- `posts` | `comments` | `details` | `mentions` | `reels`
-- `resultsLimit`: max results per URL
-- `onlyPostsNewerThan`: date filter, e.g. `"2024-01-01"` or `"7 days"`
-- `searchType`: `user` | `hashtag` | `place`
-- `searchLimit`: max search results (1-250)
-- `addParentData`: add source metadata to results
-
-#### TikTok
-
-- `tiktokType` (required): `"search"`, `"hashtags"`, `"videos"`, or `"profiles"`
-  - `"search"` requires `queries`
-  - `"hashtags"` requires `hashtags`
-  - `"videos"` requires `urls`
-  - `"profiles"` requires `profiles`
-
-**actorInput options:**
-
-- `resultsPerPage`: results per hashtag/profile/search (1-1000000)
-- `profileScrapeSections`: sections to scrape -- `["videos"]`, `["reposts"]`, or both
-- `profileSorting`: `latest` | `popular` | `oldest`
-- `excludePinnedPosts`: exclude pinned posts from profiles
-- `oldestPostDateUnified`: date filter, e.g. `"2024-01-01"` or `"30 days"`
-- `newestPostDate`: scrape videos before this date
-- `leastDiggs` / `mostDiggs`: popularity filters (min/max hearts)
-- `searchSection`: `""` (Top) | `"/video"` (Video) | `"/user"` (Profile)
-- `maxProfilesPerQuery`: max profiles for profile searches
-- `searchSorting`: `"0"` (relevant) | `"1"` (most liked) | `"3"` (latest)
-- `searchDatePosted`: `"0"` (all time) | `"1"` (24h) | `"2"` (week) | `"3"` (month) | `"4"` (3 months) | `"5"` (6 months)
-- `scrapeRelatedVideos`: scrape related videos for video URLs
-- `shouldDownloadVideos` / `shouldDownloadSubtitles` / `shouldDownloadCovers` / `shouldDownloadAvatars` / `shouldDownloadSlideshowImages` / `shouldDownloadMusicCovers`: download toggles
-- `commentsPerPost` / `maxRepliesPerComment`: comments scraping
-- `maxFollowersPerProfile` / `maxFollowingPerProfile`: followers/following scraping (charged)
-- `proxyCountryCode`: ISO country code for proxy, e.g. `"US"`
-
-#### YouTube
-
-- Provide `urls` (video/channel/playlist URLs) or `queries` (search terms)
-
-**actorInput options:**
-
-- `maxResults`: max videos per search term
-- `maxResultsShorts`: max shorts per search
-- `maxResultStreams`: max streams per search
-- `downloadSubtitles`: download video subtitles
-- `subtitlesLanguage`: `any` | `en` | `de` | `es` | `fr` | `it` | `ja` | `ko` | `nl` | `pt` | `ru`
-- `subtitlesFormat`: `srt` | `vtt` | `xml` | `plaintext`
-- `preferAutoGeneratedSubtitles`: prefer auto-generated subtitles
-- `sortingOrder`: `relevance` | `rating` | `date` | `views`
-- `dateFilter`: `hour` | `today` | `week` | `month` | `year`
-- `videoType`: `video` | `movie`
-- `lengthFilter`: `under4` | `between420` | `plus20`
-- `isHD` / `is4K` / `isLive` / `hasSubtitles` / `hasCC`: search feature filters
-- `oldestPostDate`: date filter for channel scraping, e.g. `"2024-01-01"` or `"30 days"`
-- `sortVideosBy`: `NEWEST` | `POPULAR` | `OLDEST`
-
-#### LinkedIn
-
-- `linkedinAction` (required): `"profiles"`, `"company"`, or `"jobs"`
-
-**Profiles** (`linkedinAction: "profiles"`):
-
-- Provide `urls` (profile URLs) and/or `profiles` (usernames)
-- Returns: profile info, work experience, education, certifications
-- Up to 1000 profiles per batch
-
-**Company** (`linkedinAction: "company"`):
-
-- Requires `urls` (LinkedIn company profile URLs, e.g. `https://www.linkedin.com/company/tesla-motors`)
-- `includePosts` (optional, default: `true`): also scrape company posts using the same URLs
-- When `includePosts=true`, fires two concurrent runs (details + posts) returning two run references
-- Returns: company name, industry, website, employee count, description, specialities
-
-**Jobs** (`linkedinAction: "jobs"`):
-
-- Requires `urls` (LinkedIn jobs search URLs from `linkedin.com/jobs/search/`)
-- Returns: job title, company, location, salary, description
-
-**actorInput options:**
-
-- Profiles: `includeEmail` (boolean, default: false) -- include email if available
-- Company posts: `limit` (number, 1-100, default: 100) -- max posts per company
-- Jobs: `scrapeCompany` (boolean, default: true) -- include company details with job listings
-- Jobs: `count` (number, min 100) -- limit total jobs scraped
-- Jobs: `splitByLocation` (boolean, default: false) -- split search by city to bypass 1000 job limit
-- Jobs: `splitCountry` (string) -- country code for location split (e.g. `"US"`, `"GB"`)
-
-### Platform capabilities
-
-| Platform      | Actions                                                                     |
-| ------------- | --------------------------------------------------------------------------- |
-| **Instagram** | Scrape URLs (posts, comments, mentions) or search (hashtags, places, users) |
-| **TikTok**    | Search queries, hashtags, video URLs, or profiles                           |
-| **YouTube**   | Search terms or direct video/channel URLs                                   |
-| **LinkedIn**  | Profile details, company info + posts, or job listings                      |
+Most Actors accept arrays of URLs/queries in their input (e.g., `startUrls`, `queries`). Always batch multiple targets into a single run — one run with 5 URLs is cheaper and faster than 5 separate runs.
 
 ### Examples
 
 ```javascript
-// Start: scrape Instagram and TikTok concurrently
-const startResult = await social_platforms({
-  action: "start",
-  requests: [
-    {
-      platform: "instagram",
-      instagramMode: "url",
-      instagramType: "posts",
-      urls: ["https://www.instagram.com/natgeo/"],
-      maxResults: 10,
-    },
-    {
-      platform: "tiktok",
-      tiktokType: "search",
-      queries: ["AI tools"],
-      actorInput: {
-        searchSection: "/video",
-        searchSorting: "3",
-      },
-    },
-  ],
+// 1. Search the Apify Store
+const search = await apify_scraper({
+  action: "discover",
+  query: "linkedin company scraper",
 });
-// -> { runs: [{ runId, platform, datasetId }, ...] }
 
-// Collect results
-const collectResult = await social_platforms({
+// 2. Get an Actor's input schema
+const schema = await apify_scraper({
+  action: "discover",
+  actorId: "compass~crawler-google-places",
+});
+
+// 3. Start a Google Search scrape
+const started = await apify_scraper({
+  action: "start",
+  actorId: "apify~google-search-scraper",
+  input: { queries: ["OpenAI", "Anthropic"], maxPagesPerQuery: 1 },
+  label: "search",
+});
+// -> { runs: [{ runId, actorId, datasetId, status }] }
+
+// 4. Collect results
+const results = await apify_scraper({
   action: "collect",
-  runs: startResult.runs,
+  runs: started.runs,
 });
 // -> { completed: [...], pending: [...] }
 
-// YouTube with subtitles and date filter
-await social_platforms({
+// Instagram profile scraping
+await apify_scraper({
   action: "start",
-  requests: [
-    {
-      platform: "youtube",
-      queries: ["web scraping 2025"],
-      maxResults: 5,
-      actorInput: {
-        downloadSubtitles: true,
-        subtitlesLanguage: "en",
-        sortingOrder: "date",
-        dateFilter: "month",
-      },
-    },
-  ],
+  actorId: "apify~instagram-profile-scraper",
+  input: { usernames: ["natgeo", "nasa"] },
 });
 
-// LinkedIn: scrape company details + posts, and profiles in parallel
-await social_platforms({
+// TikTok search
+await apify_scraper({
   action: "start",
-  requests: [
-    {
-      platform: "linkedin",
-      linkedinAction: "company",
-      urls: ["https://www.linkedin.com/company/tesla-motors"],
-    },
-    {
-      platform: "linkedin",
-      linkedinAction: "profiles",
-      profiles: ["satyanadella", "neal-mohan"],
-    },
-  ],
-});
-// -> company action returns 2 run refs (details + posts), profiles returns 1
-
-// LinkedIn: scrape job listings
-await social_platforms({
-  action: "start",
-  requests: [
-    {
-      platform: "linkedin",
-      linkedinAction: "jobs",
-      urls: [
-        "https://www.linkedin.com/jobs/search/?keywords=software+engineer&location=San+Francisco",
-      ],
-      actorInput: {
-        scrapeCompany: true,
-        count: 200,
-      },
-    },
-  ],
+  actorId: "clockworks~tiktok-scraper",
+  input: { searchQueries: ["AI tools"], resultsPerPage: 20 },
 });
 ```
 
-- Responses are cached (default 15 minutes) to reduce repeated API calls.
-- If you use tool profiles/allowlists, add `social_platforms` or `group:plugins`.
+### Sub-agent delegation
+
+The tool description instructs agents to delegate `apify_scraper` calls to a sub-agent. The sub-agent handles the full discover → start → collect workflow and returns only the relevant extracted data — not raw API responses or run metadata.
+
+## Security
+
+- **API keys** are resolved from plugin config or `APIFY_API_KEY` env var — never logged or included in output.
+- **Base URL validation** — only `https://api.apify.com` prefix is allowed (SSRF prevention).
+- **External content wrapping** — all scraped results are wrapped with untrusted content markers.
 
 ## Development
 
@@ -292,7 +157,14 @@ npx tsc --noEmit
 
 # Run tests
 npx vitest run
+
+# Pack (dry run)
+npm pack --dry-run
 ```
+
+## Support
+
+For issues with this integration, contact [integrations@apify.com](mailto:integrations@apify.com).
 
 ## License
 

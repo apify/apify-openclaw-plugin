@@ -1,7 +1,7 @@
 {
   "name": "@apify/apify-openclaw-integration",
-  "version": "0.1.0",
-  "description": "Social media scraping via Apify (Instagram, TikTok, YouTube, LinkedIn) for OpenClaw",
+  "version": "0.2.0",
+  "description": "Web scraping and AI-powered data extraction via Apify for OpenClaw — market research, competitor intelligence, trend analysis, lead generation, e-commerce, social media analytics, and more.",
   "type": "module",
   "license": "MIT",
   "author": "Apify Technologies s.r.o.",
@@ -16,12 +16,18 @@
   "keywords": [
     "openclaw",
     "apify",
+    "web-scraping",
+    "market-research",
+    "competitor-intelligence",
+    "trend-analysis",
+    "lead-generation",
+    "ecommerce",
     "social-media",
     "scraper",
     "instagram",
     "tiktok",
     "youtube",
-    "linkedin"
+    "facebook"
   ],
   "files": [
     "src/",
@@ -30,7 +36,8 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@sinclair/typebox": "0.34.48"
+    "@sinclair/typebox": "0.34.48",
+    "apify-client": "^2.22.2"
   },
   "peerDependencies": {
     "openclaw": ">=2026.1.0"

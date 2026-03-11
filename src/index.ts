@@ -1,14 +1,16 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
-import { createSocialPlatformsTool } from "./social-platforms-tool.js";
+import { createApifyScraperTool } from "./tools/apify-scraper-tool.js";
+import { registerCli } from "./cli.js";
 
 export default {
   id: "apify-openclaw-integration",
-  name: "Apify Social Scraper",
-  description: "Social media scraping via Apify (Instagram, TikTok, YouTube, LinkedIn)",
+  name: "Apify",
+  description:
+    "Web scraping and data extraction via Apify — scrape any platform using 57+ actors across social media, maps, search, e-commerce, and more.",
   register(api: OpenClawPluginApi) {
-    const tool = createSocialPlatformsTool({ pluginConfig: api.pluginConfig });
-    if (tool) {
-      api.registerTool(tool);
-    }
+    const cfg = { pluginConfig: api.pluginConfig };
+    const tool = createApifyScraperTool(cfg);
+    if (tool) api.registerTool(tool);
+    registerCli(api);
   },
 };
