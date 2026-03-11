@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a standalone OpenClaw plugin (`@apify/apify-openclaw-integration`) that provides web scraping and data extraction via Apify's API. It registers **1 agent tool** (`apify_scraper`) — a universal scraper with 3 actions: `discover`, `start`, and `collect`.
+This is a standalone OpenClaw plugin (`@apify/apify-openclaw-plugin`) that provides web scraping and data extraction via Apify's API. It registers **1 agent tool** (`apify_scraper`) — a universal scraper with 3 actions: `discover`, `start`, and `collect`.
 
 - **Upstream repo:** https://github.com/openclaw/openclaw
 - **Plugin docs:** https://docs.openclaw.ai/plugins/community
@@ -93,7 +93,7 @@ The wizard merges safely: preserves existing config, adds to `tools.alsoAllow` w
 
 - TypeScript (ESM). Prefer strict typing; avoid `any`.
 - Tool names: `snake_case` (e.g., `apify_scraper`).
-- Plugin id / config keys: `kebab-case` (e.g., `apify-openclaw-integration`).
+- Plugin id / config keys: `kebab-case` (e.g., `apify-openclaw-plugin`).
 - Keep files concise. Add comments for non-obvious logic.
 - Tool schema guardrails: avoid `Type.Union`. Use `stringEnum` for string enums, `Type.Optional(...)` instead of nullable types.
 
@@ -120,7 +120,7 @@ OpenClaw scans for plugins in strict precedence order:
 
 For npm-installed plugins: `openclaw plugins install <npm-spec>` runs `npm pack`, extracts the tarball into `~/.openclaw/extensions/<id>/`, and runs `npm install --ignore-scripts` for dependencies.
 
-The plugin id is derived from the **unscoped** npm package name. For `@apify/apify-openclaw-integration`, the id = `apify-openclaw-integration`.
+The plugin id is derived from the **unscoped** npm package name. For `@apify/apify-openclaw-plugin`, the id = `apify-openclaw-plugin`.
 
 #### 2. Manifest Loading
 
@@ -155,7 +155,7 @@ Tool names that collide with core tool names are silently dropped. Plugin tools 
   plugins: {
     enabled: true,
     entries: {
-      "apify-openclaw-integration": {
+      "apify-openclaw-plugin": {
         enabled: true,
         config: {
           apiKey: "apify_api_...",     // or use APIFY_API_KEY env var
@@ -168,7 +168,7 @@ Tool names that collide with core tool names are silently dropped. Plugin tools 
     },
   },
   tools: {
-    alsoAllow: ["group:plugins"],   // or "apify-openclaw-integration" or "apify_scraper"
+    alsoAllow: ["group:plugins"],   // or "apify-openclaw-plugin" or "apify_scraper"
   },
 }
 ```

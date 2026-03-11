@@ -317,7 +317,7 @@ export function createApifyScraperTool(options?: {
       if (!apiKey) {
         return jsonResult({
           error: "missing_api_key",
-          message: "Set APIFY_API_KEY env var or configure apiKey in the apify-openclaw-integration plugin config.",
+          message: "Set APIFY_API_KEY env var or configure apiKey in the apify-openclaw-plugin plugin config.",
         });
       }
 

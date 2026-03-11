@@ -5,7 +5,7 @@ Universal web scraping and data extraction via [Apify](https://apify.com) — 57
 ## Install
 
 ```bash
-openclaw plugins install @apify/apify-openclaw-integration
+openclaw plugins install @apify/apify-openclaw-plugin
 ```
 
 Restart the Gateway after installation.
@@ -35,7 +35,7 @@ The tool uses a **two-phase async pattern**: `start` fires off a run and returns
 {
   plugins: {
     entries: {
-      "apify-openclaw-integration": {
+      "apify-openclaw-plugin": {
         config: {
           apiKey: "apify_api_...",     // optional if APIFY_API_KEY env var is set
           baseUrl: "https://api.apify.com",
@@ -47,7 +47,7 @@ The tool uses a **two-phase async pattern**: `start` fires off a run and returns
   },
   // Make the tool available to agents:
   tools: {
-    alsoAllow: ["apify_scraper"],   // or "apify-openclaw-integration" or "group:plugins"
+    alsoAllow: ["apify_scraper"],   // or "apify-openclaw-plugin" or "group:plugins"
   },
 }
 ```
