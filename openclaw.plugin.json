@@ -1,0 +1,58 @@
+{
+  "id": "apify-openclaw-integration",
+  "name": "Apify",
+  "description": "Universal web scraping and data extraction via Apify — scrape any platform using 57+ Actors across social media, maps, search, e-commerce, and more.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "Enable the Apify plugin (default: true when apiKey is set)."
+      },
+      "apiKey": {
+        "type": "string",
+        "description": "Apify API token (optional; defaults to APIFY_API_KEY env var)."
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "Apify API base URL (default: https://api.apify.com)."
+      },
+      "maxResults": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 1000,
+        "description": "Default max results per Actor run (default: 20)."
+      },
+      "enabledTools": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["apify_scraper"]
+        },
+        "description": "Which tools to register (default: all tools enabled)."
+      }
+    }
+  },
+  "uiHints": {
+    "apiKey": {
+      "label": "Apify API Key",
+      "sensitive": true,
+      "help": "Get one at https://console.apify.com/settings/integrations"
+    },
+    "enabled": {
+      "label": "Enable Apify Plugin"
+    },
+    "enabledTools": {
+      "label": "Enabled Tools",
+      "advanced": true
+    },
+    "baseUrl": {
+      "label": "API Base URL",
+      "advanced": true
+    },
+    "maxResults": {
+      "label": "Default Max Results"
+    }
+  }
+}

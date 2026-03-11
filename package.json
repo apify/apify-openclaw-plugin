@@ -1,0 +1,60 @@
+{
+  "name": "@apify/apify-openclaw-integration",
+  "version": "0.2.0",
+  "description": "Web scraping and AI-powered data extraction via Apify for OpenClaw — market research, competitor intelligence, trend analysis, lead generation, e-commerce, social media analytics, and more.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Apify Technologies s.r.o.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apify/apify-openclaw-integration.git"
+  },
+  "bugs": {
+    "url": "https://github.com/apify/apify-openclaw-integration/issues"
+  },
+  "homepage": "https://github.com/apify/apify-openclaw-integration#readme",
+  "keywords": [
+    "openclaw",
+    "apify",
+    "web-scraping",
+    "market-research",
+    "competitor-intelligence",
+    "trend-analysis",
+    "lead-generation",
+    "ecommerce",
+    "social-media",
+    "scraper",
+    "instagram",
+    "tiktok",
+    "youtube",
+    "facebook"
+  ],
+  "files": [
+    "src/",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48",
+    "apify-client": "^2.22.2"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.1.0"
+  },
+  "peerDependenciesMeta": {
+    "openclaw": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "openclaw": "^2026.2.18",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}
