@@ -96,6 +96,8 @@ async function applyConfigChanges(
 
   // Merge plugin entry
   if (!cfg.plugins) cfg.plugins = {};
+  if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
+  if (!cfg.plugins.allow.includes("apify")) cfg.plugins.allow.push("apify");
   if (!cfg.plugins.entries) cfg.plugins.entries = {};
   const existing = cfg.plugins.entries["apify"] ?? {};
   const existingPluginConfig =
@@ -134,6 +136,8 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
   console.log("  ✓ Setup complete!\n");
   console.log("  Add this to your OpenClaw config:\n");
   console.log("  plugins:");
+  console.log("    allow:");
+  console.log("      - apify");
   console.log("    entries:");
   console.log("      apify:");
   console.log("        enabled: true");
