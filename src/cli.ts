@@ -45,13 +45,8 @@ export function registerCli(api: OpenClawPluginApi): void {
 
       apify
         .command("status")
-        .description("Show current Apify plugin configuration status")
+        .description("Show Apify plugin configuration and test API connection")
         .action(() => runStatusCommand(api));
-
-      apify
-        .command("test")
-        .description("Test the Apify API connection")
-        .action(() => runTestCommand(api));
     },
     { commands: ["apify"] },
   );
@@ -252,7 +247,7 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
 // status command
 // ---------------------------------------------------------------------------
 
-function runStatusCommand(api: OpenClawPluginApi): void {
+async function runStatusCommand(api: OpenClawPluginApi): Promise<void> {
   const config = (api.pluginConfig ?? {}) as Record<string, unknown>;
   const apiKey = getApiKey(api);
   const baseUrl = getBaseUrl(api);
@@ -268,26 +263,15 @@ function runStatusCommand(api: OpenClawPluginApi): void {
       : "all (no restriction)";
   console.log(`  Tools:         ${enabledTools}`);
   console.log(`  Plugin:        ${config.enabled === false ? "disabled" : "enabled (when API key is set)"}`);
-  console.log();
-}
 
-// ---------------------------------------------------------------------------
-// test command
-// ---------------------------------------------------------------------------
-
-async function runTestCommand(api: OpenClawPluginApi): Promise<void> {
-  const apiKey = getApiKey(api);
-  const baseUrl = getBaseUrl(api);
-
-  console.log("\n=== Testing Apify API Connection ===\n");
-
+  // Connection test
   if (!apiKey) {
-    console.log("  ✗ Cannot test: API key not configured.");
+    console.log(`\n  ✗ Cannot test connection: API key not configured.`);
     console.log("    Run 'openclaw apify setup' to configure.\n");
     return;
   }
 
-  process.stdout.write("  Connecting… ");
+  process.stdout.write("\n  Testing connection… ");
 
   try {
     const client = createApifyClient(apiKey, baseUrl);
