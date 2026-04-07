@@ -18,9 +18,9 @@ src/
   index.ts                    # Plugin entry point — registers apify + CLI
   apify-client.ts             # Shared Apify client factory, config helpers
   cli.ts                      # openclaw apify setup|status|test commands
-  util.ts                     # Inlined utilities (not exported by openclaw/plugin-sdk)
+  util.ts                     # Inlined utilities: ToolInputError, normalizeSecretInput, wrapExternalContent
   tools/
-    apify-scraper-tool.ts     # Universal scraper — discover + start + collect + cached_runs
+    apify-scraper-tool.ts     # Universal scraper — discover + start + collect
 test/
   helpers.ts                  # makeMockFetch, standardRunResponses, TEST_CONFIG
   apify-scraper.test.ts       # Tool tests
@@ -44,23 +44,15 @@ Single tool with 3 actions:
 The tool description includes instructions for the agent:
 - **Sub-agent delegation:** Tool should be used by a sub-agent that returns only relevant extracted data, not raw dumps.
 - **Batching:** Batch multiple URLs into a single run (e.g. `startUrls: [{url: "..."}, ...]`).
-- **Caching:** Every response auto-includes a `previousRuns` field with a compact summary of cached scrape results. The agent should evaluate this before starting new runs.
 - **Known actors:** Compact comma-separated list of 57 actors across Instagram, Facebook, TikTok, YouTube, Google Maps, and more.
 - **Support:** Directs users to integrations@apify.com for issues.
-
-### Cache Architecture
-
-- **In-memory `Map<string, CacheEntry>`** keyed by `apify-scraper:run:<runId>`.
-- Default TTL: 15 minutes. Configurable via `cacheTtlMinutes`. Max 100 entries (LRU eviction).
-- At collect time, the original run input is fetched from `keyValueStore(kvStoreId).getRecord("INPUT")` in parallel with dataset items and stored in the cache payload.
-- **Auto-injected `previousRuns`:** Every tool response includes a compact summary of cached runs (actor, result count, input, run/dataset IDs, expiry). Expired entries are auto-purged. Last 10 entries shown.
 
 ## Key Architecture Decisions
 
 - **Single tool, multiple actions:** All scraping goes through `apify` with `discover`/`start`/`collect` actions.
 - **Async two-phase pattern:** `start` returns immediately with run references. `collect` polls and fetches results. The agent does other work between calls.
 - **`apify-client` SDK:** Uses the official `apify-client` npm package (not raw HTTP). Client created via `createApifyClient(apiKey, baseUrl)`.
-- **Inlined utilities (`util.ts`):** `ToolInputError`, cache helpers, and `wrapExternalContent` are NOT exported from `openclaw/plugin-sdk`. We carry local copies.
+- **Inlined utilities (`util.ts`):** `ToolInputError`, `normalizeSecretInput`, and `wrapExternalContent` are NOT exported from `openclaw/plugin-sdk`. We carry local copies.
 - **No build step:** OpenClaw loads plugins via `jiti` (TypeScript JIT). We ship `.ts` source directly.
 - **No skills:** Skills were removed — the tool description and `discover` action provide all needed guidance.
 
@@ -87,7 +79,7 @@ The wizard merges safely: preserves existing config, adds to `tools.alsoAllow` w
 - **Type-check:** `npx tsc --noEmit`
 - **Test:** `npx vitest run`
 - **Pack (dry run):** `npm pack --dry-run`
-- **Current state:** 1 test file, 12 tests passing.
+- **Current state:** 1 test file, 10 tests passing.
 
 ## Coding Style
 
@@ -160,7 +152,6 @@ Tool names that collide with core tool names are silently dropped. Plugin tools 
         config: {
           apiKey: "apify_api_...",     // or use APIFY_API_KEY env var
           baseUrl: "https://api.apify.com",
-          cacheTtlMinutes: 15,
           maxResults: 20,
           enabledTools: [],           // empty = all tools enabled
         },
@@ -188,7 +179,6 @@ All scraped data is **untrusted external content**. The `wrapExternalContent(con
 - **API keys:** Resolved from plugin config `apiKey` or `APIFY_API_KEY` env var. Never logged or included in tool output.
 - **Base URL validation:** Only `https://api.apify.com` prefix allowed. Rejects other URLs to prevent SSRF.
 - **External content wrapping:** All scraped results wrapped with untrusted content markers.
-- **HTTP timeout:** 30s per request via `AbortSignal`.
 
 ---
 
