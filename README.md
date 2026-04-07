@@ -1,6 +1,6 @@
 # Apify Plugin for OpenClaw
 
-Universal web scraping and data extraction via [Apify](https://apify.com) — 57+ Actors across Instagram, Facebook, TikTok, YouTube, Google Maps, Google Search, e-commerce, and more.
+Universal web scraping and data extraction via [Apify](https://apify.com) — 20k+ Actors across Instagram, Facebook, TikTok, YouTube, Google Maps, Google Search, e-commerce, and more.
 
 ## Install
 
@@ -77,7 +77,7 @@ Actor IDs use the `username~actor-name` format (tilde separator, not slash).
 
 ### Known Actors
 
-The tool description includes 57+ known Actors across these categories:
+The tool description includes 20k+ Actors across these categories:
 
 - **Instagram** — profiles, posts, comments, hashtags, reels, search, followers, tagged posts
 - **Facebook** — pages, posts, comments, likes, reviews, groups, events, ads, reels, photos, marketplace

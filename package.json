@@ -53,6 +53,12 @@
     "vitest": "^3.0.0"
   },
   "openclaw": {
+    "id": "apify",
+    "compat": {
+      "pluginApi": ">=1.0.0",
+      "builtWithOpenClawVersion": "2026.2.19",
+      "pluginSdkVersion": "2026.2.19"
+    },
     "extensions": [
       "./src/index.ts"
     ]
