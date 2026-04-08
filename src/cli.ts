@@ -41,12 +41,17 @@ export function registerCli(api: OpenClawPluginApi): void {
       apify
         .command("setup")
         .description("Interactive setup wizard for the Apify plugin")
-        .action(() => runSetupCommand(api));
+        .action(async () => runSetupCommand(api));
 
       apify
         .command("status")
         .description("Show Apify plugin configuration and test API connection")
-        .action(() => runStatusCommand(api));
+        .action(async () => runStatusCommand(api));
+
+      apify
+        .command("test")
+        .description("Test Apify API connection")
+        .action(async () => runStatusCommand(api));
     },
     { commands: ["apify"] },
   );
