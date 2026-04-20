@@ -36,11 +36,10 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@sinclair/typebox": "0.34.48",
     "apify-client": "^2.22.2"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.1.0"
+    "openclaw": ">=2026.4.15"
   },
   "peerDependenciesMeta": {
     "openclaw": {
@@ -48,7 +47,8 @@
     }
   },
   "devDependencies": {
-    "openclaw": "^2026.2.18",
+    "@sinclair/typebox": "^0.34.49",
+    "openclaw": "^2026.4.15",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
@@ -56,8 +56,8 @@
     "id": "apify-openclaw-plugin",
     "compat": {
       "pluginApi": ">=1.0.0",
-      "builtWithOpenClawVersion": "2026.2.19",
-      "pluginSdkVersion": "2026.2.19"
+      "builtWithOpenClawVersion": "2026.4.15",
+      "pluginSdkVersion": "2026.4.15"
     },
     "extensions": [
       "./src/index.ts"
