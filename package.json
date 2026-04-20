@@ -36,6 +36,7 @@
     "LICENSE"
   ],
   "dependencies": {
+    "@sinclair/typebox": "^0.34.49",
     "apify-client": "^2.22.2"
   },
   "peerDependencies": {
@@ -47,7 +48,6 @@
     }
   },
   "devDependencies": {
-    "@sinclair/typebox": "^0.34.49",
     "openclaw": "^2026.4.15",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
