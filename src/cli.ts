@@ -112,6 +112,13 @@ async function applyConfigChanges(
     },
   };
 
+  // Pin trust: add plugin id to plugins.allow so OpenClaw doesn't warn about
+  // discovered non-bundled plugins auto-loading.
+  if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
+  if (!cfg.plugins.allow.includes("apify-openclaw-plugin")) {
+    cfg.plugins.allow.push("apify-openclaw-plugin");
+  }
+
   // Merge tools.alsoAllow (add selected tools, avoid duplicates)
   if (!cfg.tools) cfg.tools = {};
   if (!cfg.tools.alsoAllow) cfg.tools.alsoAllow = [];
@@ -134,6 +141,8 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
   console.log("  ✓ Setup complete!\n");
   console.log("  Add this to your OpenClaw config:\n");
   console.log("  plugins:");
+  console.log("    allow:");
+  console.log("      - apify-openclaw-plugin");
   console.log("    entries:");
   console.log("      apify-openclaw-plugin:");
   console.log("        enabled: true");
