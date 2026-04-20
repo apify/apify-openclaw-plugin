@@ -53,7 +53,7 @@
     "vitest": "^3.0.0"
   },
   "openclaw": {
-    "id": "apify",
+    "id": "apify-openclaw-plugin",
     "compat": {
       "pluginApi": ">=1.0.0",
       "builtWithOpenClawVersion": "2026.2.19",
