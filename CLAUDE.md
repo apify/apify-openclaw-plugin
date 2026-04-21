@@ -112,7 +112,7 @@ OpenClaw scans for plugins in strict precedence order:
 
 For npm-installed plugins: `openclaw plugins install <npm-spec>` runs `npm pack`, extracts the tarball into `~/.openclaw/extensions/<id>/`, and runs `npm install --ignore-scripts` for dependencies.
 
-The plugin id is derived from the **unscoped** npm package name. For `@apify/apify-openclaw-plugin`, the id = `apify`.
+The plugin id is derived from the **unscoped** npm package name. For `@apify/apify-openclaw-plugin`, the id = `apify-openclaw-plugin`. The manifest, default export, and `plugins.entries` config key all use this id.
 
 #### 2. Manifest Loading
 
@@ -147,7 +147,7 @@ Tool names that collide with core tool names are silently dropped. Plugin tools 
   plugins: {
     enabled: true,
     entries: {
-      "apify": {
+      "apify-openclaw-plugin": {
         enabled: true,
         config: {
           apiKey: "apify_api_...",     // or use APIFY_API_KEY env var

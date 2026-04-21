@@ -35,7 +35,7 @@ The tool uses a **two-phase async pattern**: `start` fires off a run and returns
 {
   plugins: {
     entries: {
-      "apify": {
+      "apify-openclaw-plugin": {
         config: {
           apiKey: "apify_api_...",     // optional if APIFY_API_KEY env var is set
           baseUrl: "https://api.apify.com",

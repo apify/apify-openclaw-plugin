@@ -97,12 +97,12 @@ async function applyConfigChanges(
   // Merge plugin entry
   if (!cfg.plugins) cfg.plugins = {};
   if (!cfg.plugins.entries) cfg.plugins.entries = {};
-  const existing = cfg.plugins.entries["apify"] ?? {};
+  const existing = cfg.plugins.entries["apify-openclaw-plugin"] ?? {};
   const existingPluginConfig =
     typeof existing.config === "object" && existing.config !== null
       ? (existing.config as Record<string, unknown>)
       : {};
-  cfg.plugins.entries["apify"] = {
+  cfg.plugins.entries["apify-openclaw-plugin"] = {
     ...existing,
     enabled: true,
     config: {
@@ -111,6 +111,13 @@ async function applyConfigChanges(
       maxResults: existingPluginConfig.maxResults ?? 20,
     },
   };
+
+  // Pin trust: add plugin id to plugins.allow so OpenClaw doesn't warn about
+  // discovered non-bundled plugins auto-loading.
+  if (!Array.isArray(cfg.plugins.allow)) cfg.plugins.allow = [];
+  if (!cfg.plugins.allow.includes("apify-openclaw-plugin")) {
+    cfg.plugins.allow.push("apify-openclaw-plugin");
+  }
 
   // Merge tools.alsoAllow (add selected tools, avoid duplicates)
   if (!cfg.tools) cfg.tools = {};
@@ -134,8 +141,10 @@ function printManualConfig(apiKey: string, selectedTools: string[], allSelected:
   console.log("  ✓ Setup complete!\n");
   console.log("  Add this to your OpenClaw config:\n");
   console.log("  plugins:");
+  console.log("    allow:");
+  console.log("      - apify-openclaw-plugin");
   console.log("    entries:");
-  console.log("      apify:");
+  console.log("      apify-openclaw-plugin:");
   console.log("        enabled: true");
   console.log("        config:");
   console.log(`          apiKey: "${apiKey}"`);
