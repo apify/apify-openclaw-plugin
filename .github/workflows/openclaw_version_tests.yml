@@ -20,9 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Keep this job on the same Node major as the matrix `test` job below
+      # (Node 24) for consistency; this job only runs `npm view`, so the exact
+      # version is not load-bearing here.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - id: filter
         name: Pick latest 3 OpenClaw versions
@@ -52,9 +55,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # OpenClaw's newer releases raise their Node engine floor over time
+      # (2026.9.3+ require Node >=24.16.0 <25 || >=26.1.0, dropping Node 22).
+      # Run the matrix on Node 24 so `npm install openclaw@<matrix version>`
+      # satisfies every currently-selected release's `engines.node` — the
+      # intersection of the latest matrix versions' ranges is >=24.16.0 <25.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install OpenClaw ${{ matrix.version }} and smoke-test plugin
         shell: bash
