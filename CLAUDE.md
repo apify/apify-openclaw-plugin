@@ -111,7 +111,7 @@ The wizard merges safely: preserves existing config, adds to `tools.alsoAllow` w
 
 ## Build, Test, and Development
 
-- **Runtime:** Node 22+ (required by openclaw peer dependency).
+- **Runtime:** Node 24.16+ (the pinned openclaw devDependency requires it; 2026.9.3+ dropped Node 22).
 - **Install:** `npm install`
 - **Type-check:** `npx tsc --noEmit`
 - **Test:** `npx vitest run`
@@ -146,7 +146,7 @@ The module's rule: a **release** matches `/^\d+\.\d+\.\d+(-\d+)?$/`, and `compar
 ## CI Workflows
 
 ### `ci.yml` — fast PR gate
-- Pins npm to the release major, then runs `npm ci` + `npx tsc --noEmit` + `npx vitest run` + `npm run build` on Node 22.
+- Pins npm to the release major, then runs `npm ci` + `npx tsc --noEmit` + `npx vitest run` + `npm run build` on Node 24.
 - Triggers on push/PR to `main`.
 - Uses `npm ci`, **not** `npm install` — install must fail on a stale/incomplete lockfile instead of silently rewriting it. With `npm install` here, CI stayed green while the release job died on the same commit.
 

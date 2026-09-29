@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js & cache npm
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
 
@@ -140,7 +140,7 @@ jobs:
       - name: Set up Node.js & cache npm
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '24.x'
           cache: npm
 
       # Match the npm major the lockfile was written with (see ci/publish notes).

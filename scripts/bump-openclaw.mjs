@@ -113,7 +113,18 @@ function smokeTest(latest) {
   try {
     run("npm", ["init", "-y"], { cwd: workdir });
     run("npm", ["install", `openclaw@${latest}`], { cwd: workdir });
-    run("npx", ["--no-install", "openclaw", "plugins", "install", tarballPath], { cwd: workdir });
+    // Same non-interactive gates as CI (openclaw_version_tests.yml): 2026.8.1+
+    // aborts without a TTY unless `--force` / `--accept-capabilities` are passed.
+    // Feature-detect from `--help` so older versions don't reject unknown flags.
+    const installHelp =
+      spawnSync("npx", ["--no-install", "openclaw", "plugins", "install", "--help"], {
+        cwd: workdir,
+        encoding: "utf8",
+      }).stdout ?? "";
+    const installFlags = ["--force", "--accept-capabilities"].filter((f) => installHelp.includes(f));
+    run("npx", ["--no-install", "openclaw", "plugins", "install", tarballPath, ...installFlags], {
+      cwd: workdir,
+    });
 
     const listOut = capture("npx", ["--no-install", "openclaw", "plugins", "list"], { cwd: workdir });
     process.stdout.write(listOut);

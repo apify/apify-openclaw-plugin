@@ -61,18 +61,18 @@
     }
   },
   "devDependencies": {
-    "openclaw": "^2026.7.1-2",
+    "openclaw": "^2026.9.6",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "openclaw": {
     "build": {
-      "openclawVersion": "2026.7.1-2"
+      "openclawVersion": "2026.9.6"
     },
     "compat": {
       "pluginApi": ">=1.0.0",
-      "builtWithOpenClawVersion": "2026.7.1-2",
-      "pluginSdkVersion": "2026.7.1-2"
+      "builtWithOpenClawVersion": "2026.9.6",
+      "pluginSdkVersion": "2026.9.6"
     },
     "extensions": [
       "./dist/index.js"
