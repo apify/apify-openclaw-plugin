@@ -53,7 +53,7 @@ The tool uses a **two-phase async pattern**: `start` fires off a run and returns
 ## Get an API key
 
 1. Create an Apify account at [https://console.apify.com/](https://console.apify.com/)
-2. Generate an API token in Account Settings → Integrations.
+2. Create an API token for OpenClaw in [Apify Console](https://console.apify.com/settings/integrations?createApiToken=true&for=OpenClaw&utm_source=openclaw&utm_medium=integrations) and copy it right after creating it — it is shown only once.
 3. Store it in plugin config or set the `APIFY_API_KEY` environment variable.
 
 ## Configure
