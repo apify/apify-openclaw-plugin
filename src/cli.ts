@@ -190,14 +190,15 @@ async function runSetupCommand(api: OpenClawPluginApi): Promise<void> {
       console.log(`  ✓ API key already configured: ${existingKey.slice(0, 12)}…\n`);
       const change = await confirm(rl, "  Replace it with a new key?", false);
       if (change) {
-        apiKey = await ask(rl, "\n  Get a new API key at https://console.apify.com/settings/integrations?utm_source=openclaw&utm_medium=integration\n  Enter new API key");
+        apiKey = await ask(rl, "\n  Create an Apify API token at https://console.apify.com/settings/integrations?createApiToken=true&for=OpenClaw&utm_source=openclaw&utm_medium=integrations (it is shown only once).\n  Enter new API key");
         apiKey = normalizeSecretInput(apiKey);
       } else {
         apiKey = existingKey;
       }
     } else {
-      console.log("  No API key found. Get yours at:");
-      console.log("  https://console.apify.com/settings/integrations?utm_source=openclaw&utm_medium=integration\n");
+      console.log("  No API key found. Create an Apify API token at:");
+      console.log("  https://console.apify.com/settings/integrations?createApiToken=true&for=OpenClaw&utm_source=openclaw&utm_medium=integrations");
+      console.log("  (it is shown only once, so copy it right after creating it)\n");
       apiKey = await ask(rl, "  Paste your Apify API key");
       apiKey = normalizeSecretInput(apiKey);
     }
